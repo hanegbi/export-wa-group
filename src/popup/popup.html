@@ -6,7 +6,12 @@
 </head>
 <body>
   <h1>WhatsApp Group Export</h1>
-  <div class="range-row">
+  <div id="status-area"></div>
+  <div class="range-summary">
+    <span id="range-summary-text">From: Now &nbsp; To: End</span>
+    <button type="button" id="range-toggle" class="link-btn">Change Date</button>
+  </div>
+  <div class="range-row" id="range-row" hidden>
     <label class="range-field">
       From
       <input type="datetime-local" id="range-from" />
@@ -18,7 +23,6 @@
       <span class="range-hint">blank = full history</span>
     </label>
   </div>
-  <div id="status-area"></div>
   <h2>Exports</h2>
   <div id="export-list"></div>
   <script type="module" src="popup.js"></script>

@@ -1,14 +1,32 @@
 import { renderStatus, renderExportList } from './render.js';
-import { buildFilename } from '../shared/format.js';
+import { buildFilename, formatDateTimeLabel } from '../shared/format.js';
 import { initialState } from '../shared/storageState.js';
 
 const statusArea = document.getElementById('status-area');
 const exportList = document.getElementById('export-list');
+const rangeRow = document.getElementById('range-row');
+const rangeToggle = document.getElementById('range-toggle');
+const rangeSummaryText = document.getElementById('range-summary-text');
 const rangeFromInput = document.getElementById('range-from');
 const rangeToInput = document.getElementById('range-to');
 
 let activeTabId = null;
 let disabledReason = null;
+
+function updateRangeSummary() {
+  const from = rangeFromInput.value ? formatDateTimeLabel(rangeFromInput.value) : 'Now';
+  const to = rangeToInput.value ? formatDateTimeLabel(rangeToInput.value) : 'End';
+  rangeSummaryText.textContent = `From: ${from}   To: ${to}`;
+}
+
+rangeToggle.addEventListener('click', () => {
+  const willShow = rangeRow.hidden;
+  rangeRow.hidden = !willShow;
+  rangeToggle.textContent = willShow ? 'Done' : 'Change Date';
+});
+
+rangeFromInput.addEventListener('input', updateRangeSummary);
+rangeToInput.addEventListener('input', updateRangeSummary);
 
 function render(state) {
   statusArea.innerHTML = renderStatus({ ...state, disabledReason });
@@ -60,6 +78,7 @@ async function init() {
 
   const { waState } = await chrome.storage.session.get('waState');
   render(waState || initialState());
+  updateRangeSummary();
 
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'session' && changes.waState) {
