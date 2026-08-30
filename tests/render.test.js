@@ -31,13 +31,12 @@ test('renderExportList shows an empty state with no exports', () => {
 
 test('renderExportList renders one card per export, newest first order preserved, with escaped names', () => {
   const html = renderExportList([
-    { id: '2', groupName: '<Family>', date: '2026-08-30' },
-    { id: '1', groupName: 'Work', date: '2026-08-29' },
+    { id: '2', groupName: '<Family>', date: '2026-08-30T14:15:00Z' },
+    { id: '1', groupName: 'Work', date: '2026-08-29T09:05:00Z' },
   ]);
   assert.match(html, /&lt;Family&gt;/);
-  assert.match(html, /Aug 30, 2026/);
+  assert.match(html, /\d{1,2}:\d{2}\s?[AP]M/); // shows a time, not just a date
   assert.match(html, /data-export-id="2"/);
-  assert.match(html, /Aug 29, 2026/);
   assert.match(html, /data-export-id="1"/);
   assert.ok(html.indexOf('data-export-id="2"') < html.indexOf('data-export-id="1"'));
 });

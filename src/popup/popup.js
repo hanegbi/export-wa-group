@@ -34,7 +34,7 @@ function render(state) {
       const url = URL.createObjectURL(blob);
       chrome.downloads.download({
         url,
-        filename: buildFilename(entry.groupName, new Date(`${entry.date}T00:00:00`)),
+        filename: buildFilename(entry.groupName, new Date(entry.date)),
         saveAs: false,
       });
     });

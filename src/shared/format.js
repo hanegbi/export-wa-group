@@ -14,12 +14,14 @@ export function buildFilename(groupName, date) {
   return `${sanitizeFilename(groupName)}_${formatDateISO(date)}.txt`;
 }
 
-export function formatDateLabel(isoDate) {
-  const date = new Date(`${isoDate}T00:00:00`);
-  return date.toLocaleDateString('en-US', {
+export function formatDateTimeLabel(isoDateTime) {
+  const date = new Date(isoDateTime);
+  return date.toLocaleString('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
   });
 }
 

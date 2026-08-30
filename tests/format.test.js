@@ -4,7 +4,7 @@ import {
   sanitizeFilename,
   formatDateISO,
   buildFilename,
-  formatDateLabel,
+  formatDateTimeLabel,
   escapeHtml,
 } from '../src/shared/format.js';
 
@@ -29,8 +29,9 @@ test('buildFilename combines sanitized name, date, and extension', () => {
   assert.equal(buildFilename('Family <3>', date), 'Family _3__2026-08-30.txt');
 });
 
-test('formatDateLabel renders a readable label from an ISO date', () => {
-  assert.equal(formatDateLabel('2026-08-30'), 'Aug 30, 2026');
+test('formatDateTimeLabel renders a readable date and time from an ISO timestamp', () => {
+  const label = formatDateTimeLabel('2026-08-30T14:15:00Z');
+  assert.match(label, /^[A-Z][a-z]{2} \d{1,2}, \d{4}, \d{1,2}:\d{2}\s?[AP]M$/);
 });
 
 test('escapeHtml escapes the five reserved HTML characters', () => {

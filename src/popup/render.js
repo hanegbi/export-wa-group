@@ -1,4 +1,4 @@
-import { escapeHtml, formatDateLabel } from '../shared/format.js';
+import { escapeHtml, formatDateTimeLabel } from '../shared/format.js';
 
 export function renderStatus({ status, count, error, disabledReason }) {
   if (disabledReason) {
@@ -32,7 +32,7 @@ export function renderExportList(exports) {
       <div class="export-card">
         <div>
           <div class="name">${escapeHtml(item.groupName)}</div>
-          <div class="date">${formatDateLabel(item.date)}</div>
+          <div class="date">${formatDateTimeLabel(item.date)}</div>
         </div>
         <button data-export-id="${escapeHtml(item.id)}" class="download-btn">Download</button>
       </div>
