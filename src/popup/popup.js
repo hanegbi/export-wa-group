@@ -1,6 +1,6 @@
 import { renderStatus, renderExportList } from './render.js';
 import { buildFilename, formatDateTimeLabel } from '../shared/format.js';
-import { initialState } from '../shared/storageState.js';
+import { initialState, deleteExport } from '../shared/storageState.js';
 
 const statusArea = document.getElementById('status-area');
 const exportList = document.getElementById('export-list');
@@ -28,6 +28,10 @@ rangeToggle.addEventListener('click', () => {
 rangeFromInput.addEventListener('input', updateRangeSummary);
 rangeToInput.addEventListener('input', updateRangeSummary);
 
+async function setStorageState(state) {
+  await chrome.storage.session.set({ waState: state });
+}
+
 function render(state) {
   statusArea.innerHTML = renderStatus({ ...state, disabledReason });
   exportList.innerHTML = renderExportList(state.exports);
@@ -48,6 +52,13 @@ function render(state) {
     });
   }
 
+  const cancelBtn = document.getElementById('cancel-btn');
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', () => {
+      chrome.tabs.sendMessage(activeTabId, { action: 'cancelExport' });
+    });
+  }
+
   for (const btn of exportList.querySelectorAll('.download-btn')) {
     btn.addEventListener('click', () => {
       const entry = state.exports.find((item) => item.id === btn.dataset.exportId);
@@ -59,6 +70,25 @@ function render(state) {
         filename: buildFilename(entry.groupName, new Date(entry.date)),
         saveAs: false,
       });
+    });
+  }
+
+  for (const btn of exportList.querySelectorAll('.copy-btn')) {
+    btn.addEventListener('click', async () => {
+      const entry = state.exports.find((item) => item.id === btn.dataset.exportId);
+      if (!entry) return;
+      await navigator.clipboard.writeText(entry.text);
+      const original = btn.title;
+      btn.title = 'Copied!';
+      setTimeout(() => {
+        btn.title = original;
+      }, 1200);
+    });
+  }
+
+  for (const btn of exportList.querySelectorAll('.delete-btn')) {
+    btn.addEventListener('click', () => {
+      setStorageState(deleteExport(state, btn.dataset.exportId));
     });
   }
 }

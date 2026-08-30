@@ -2,6 +2,8 @@ const SCROLL_WAIT_MS = 700;
 const MAX_STALE_PASSES = 4;
 const MAX_RUNTIME_MS = 20 * 60 * 1000;
 
+let cancelRequested = false;
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -74,6 +76,8 @@ async function getState(initialState) {
 }
 
 async function runExport({ from, to } = {}) {
+  cancelRequested = false;
+
   const base = chrome.runtime.getURL('src/content');
   const { parsePrePlainText, buildLine } = await import(`${base}/scrape.js`);
   const { createAccumulator, addPass, getText } = await import(`${base}/accumulate.js`);
@@ -103,12 +107,16 @@ async function runExport({ from, to } = {}) {
   let accumulator = createAccumulator();
   let stalePasses = 0;
   let lastScrollHeight = -1;
-  let timedOut = false;
+  let stopReason = null;
   const startTime = Date.now();
 
   while (true) {
+    if (cancelRequested) {
+      stopReason = 'cancelled';
+      break;
+    }
     if (Date.now() - startTime >= MAX_RUNTIME_MS) {
-      timedOut = true;
+      stopReason = 'timeout';
       break;
     }
 
@@ -134,9 +142,10 @@ async function runExport({ from, to } = {}) {
     await sleep(SCROLL_WAIT_MS);
   }
 
+  const suffix = stopReason === 'timeout' ? ' (partial)' : stopReason === 'cancelled' ? ' (cancelled)' : '';
   const entry = {
     id: `${Date.now()}`,
-    groupName: timedOut ? `${groupName} (partial)` : groupName,
+    groupName: `${groupName}${suffix}`,
     date: new Date().toISOString(),
     text: getText(accumulator),
   };
@@ -148,6 +157,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message && message.action === 'startExport') {
     runExport({ from: message.from, to: message.to });
     sendResponse({ started: true });
+  } else if (message && message.action === 'cancelExport') {
+    cancelRequested = true;
+    sendResponse({ cancelled: true });
   }
   return false;
 });
