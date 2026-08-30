@@ -31,9 +31,11 @@ No background service worker. Three pieces:
   storage is wiped on browser restart by design, which satisfies the
   "reset every restart" requirement with no extra code.
 
-Permissions: `storage`, `downloads`. Content script `matches` covers
-`web.whatsapp.com`; no `host_permissions`/`activeTab` needed beyond that.
-No custom icon (default puzzle icon) — can be added later if wanted.
+Permissions: `storage`, `downloads`, `activeTab`. Content script `matches`
+covers `web.whatsapp.com` for injection; `activeTab` is what lets the
+popup read the active tab's URL (to know whether to enable the export
+button) when the user invokes the extension. No custom icon (default
+puzzle icon) — can be added later if wanted.
 
 ## Extraction algorithm
 WhatsApp Web virtualizes the message list: messages scrolled out of view are

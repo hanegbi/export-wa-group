@@ -3,7 +3,7 @@
   "name": "WhatsApp Group Export",
   "version": "1.0.0",
   "description": "Export the full message history of a WhatsApp Web chat to a text file.",
-  "permissions": ["storage", "downloads"],
+  "permissions": ["storage", "downloads", "activeTab"],
   "action": {
     "default_popup": "src/popup/popup.html"
   },

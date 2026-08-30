@@ -16,7 +16,9 @@
 - Keep everything: system messages ("X joined", etc.) and captionless media are included, never dropped.
 - Exports and in-progress status live only in `chrome.storage.session` (clears on browser restart by design — this is the entire "reset every restart" mechanism, no other code needed for it).
 - No npm dependencies. No build step. No custom icon.
-- No `host_permissions`/`activeTab` beyond the content script's own `matches`.
+- Permissions: `storage`, `downloads`, `activeTab` (the last is required for
+  the popup to read the active tab's URL — without it `chrome.tabs.query`
+  strips the `url` field entirely, regardless of what page is open).
 
 ---
 
@@ -81,7 +83,7 @@ tests/
   "name": "WhatsApp Group Export",
   "version": "1.0.0",
   "description": "Export the full message history of a WhatsApp Web chat to a text file.",
-  "permissions": ["storage", "downloads"],
+  "permissions": ["storage", "downloads", "activeTab"],
   "action": {
     "default_popup": "src/popup/popup.html"
   },
