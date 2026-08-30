@@ -22,6 +22,13 @@ function findMessagePane() {
 function findGroupName() {
   const header = document.querySelector('#main header');
   if (!header) return null;
+  // The header's clickable wrapper carries an accessibility title like
+  // "Click here for group info" on a span too, so a bare span[title]
+  // match grabs that instead of the name. dir="auto" reliably marks
+  // actual user-generated text (names, messages) in WhatsApp Web, so
+  // scope to that first and only fall back to any titled span.
+  const nameEl = header.querySelector('span[dir="auto"][title]') || header.querySelector('span[dir="auto"]');
+  if (nameEl) return (nameEl.getAttribute('title') || nameEl.innerText).trim();
   const titleEl = header.querySelector('span[title]');
   return titleEl ? titleEl.getAttribute('title') : null;
 }
@@ -113,7 +120,7 @@ async function runExport() {
   const entry = {
     id: `${Date.now()}`,
     groupName: reachedTop ? groupName : `${groupName} (partial)`,
-    date: new Date().toISOString().slice(0, 10),
+    date: new Date().toISOString(),
     text: getText(accumulator),
   };
   state = completeExport(state, entry);
