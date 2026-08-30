@@ -42,6 +42,12 @@ function render(state) {
 }
 
 async function init() {
+  // chrome.storage.session is off-limits to content scripts by default;
+  // this unlocks it so content.js can read/write export progress there.
+  await chrome.storage.session.setAccessLevel({
+    accessLevel: 'TRUSTED_AND_UNTRUSTED_CONTEXTS',
+  });
+
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   activeTabId = tab && tab.id;
   disabledReason = tab && tab.url && tab.url.startsWith('https://web.whatsapp.com/')
