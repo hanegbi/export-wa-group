@@ -23,3 +23,7 @@ export function completeExport(state, entry) {
 export function failExport(state, message) {
   return { ...state, status: 'error', error: message };
 }
+
+export function deleteExport(state, id) {
+  return { ...state, exports: state.exports.filter((item) => item.id !== id) };
+}

@@ -25,6 +25,17 @@ test('renderStatus shows the error message when status is error', () => {
   assert.match(html, /No chat is open\./);
 });
 
+test('renderStatus includes a cancel button while running', () => {
+  const html = renderStatus({ status: 'running', count: 5, error: null, disabledReason: null });
+  assert.match(html, /id="cancel-btn"/);
+  assert.match(html, /title="Cancel export"/);
+});
+
+test('renderStatus omits the cancel button when idle', () => {
+  const html = renderStatus({ status: 'idle', count: 0, error: null, disabledReason: null });
+  assert.doesNotMatch(html, /id="cancel-btn"/);
+});
+
 test('renderExportList shows an empty state with no exports', () => {
   assert.match(renderExportList([]), /class="empty-state"/);
 });
@@ -39,4 +50,14 @@ test('renderExportList renders one card per export, newest first order preserved
   assert.match(html, /data-export-id="2"/);
   assert.match(html, /data-export-id="1"/);
   assert.ok(html.indexOf('data-export-id="2"') < html.indexOf('data-export-id="1"'));
+});
+
+test('renderExportList includes download, copy, and delete icon buttons for each export', () => {
+  const html = renderExportList([{ id: '1', groupName: 'Work', date: '2026-08-29T09:05:00Z' }]);
+  assert.match(html, /class="icon-btn download-btn"/);
+  assert.match(html, /title="Download"/);
+  assert.match(html, /class="icon-btn copy-btn"/);
+  assert.match(html, /title="Copy to clipboard"/);
+  assert.match(html, /class="icon-btn delete-btn"/);
+  assert.match(html, /title="Delete"/);
 });

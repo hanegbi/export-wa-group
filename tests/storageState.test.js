@@ -6,6 +6,7 @@ import {
   updateProgress,
   completeExport,
   failExport,
+  deleteExport,
 } from '../src/shared/storageState.js';
 
 test('initialState starts idle with no exports', () => {
@@ -46,4 +47,19 @@ test('failExport records the error and keeps existing exports', () => {
     error: 'no chat open',
     exports: [{ id: 'old' }],
   });
+});
+
+test('deleteExport removes the export with the matching id', () => {
+  const state = { status: 'idle', count: 0, error: null, exports: [{ id: 'a' }, { id: 'b' }] };
+  assert.deepEqual(deleteExport(state, 'a'), {
+    status: 'idle',
+    count: 0,
+    error: null,
+    exports: [{ id: 'b' }],
+  });
+});
+
+test('deleteExport is a no-op when the id is not found', () => {
+  const state = { status: 'idle', count: 0, error: null, exports: [{ id: 'a' }] };
+  assert.deepEqual(deleteExport(state, 'missing'), state);
 });
