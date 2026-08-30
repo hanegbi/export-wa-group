@@ -19,6 +19,7 @@
       "resources": [
         "src/content/scrape.js",
         "src/content/accumulate.js",
+        "src/content/timestamp.js",
         "src/shared/storageState.js"
       ],
       "matches": ["https://web.whatsapp.com/*"]

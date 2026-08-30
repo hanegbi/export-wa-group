@@ -4,6 +4,8 @@ import { initialState } from '../shared/storageState.js';
 
 const statusArea = document.getElementById('status-area');
 const exportList = document.getElementById('export-list');
+const rangeFromInput = document.getElementById('range-from');
+const rangeToInput = document.getElementById('range-to');
 
 let activeTabId = null;
 let disabledReason = null;
@@ -15,7 +17,9 @@ function render(state) {
   const exportBtn = document.getElementById('export-btn');
   if (exportBtn && !exportBtn.disabled) {
     exportBtn.addEventListener('click', () => {
-      chrome.tabs.sendMessage(activeTabId, { action: 'startExport' }).catch(() => {
+      const from = rangeFromInput.value || null;
+      const to = rangeToInput.value || null;
+      chrome.tabs.sendMessage(activeTabId, { action: 'startExport', from, to }).catch(() => {
         render({
           ...state,
           status: 'error',

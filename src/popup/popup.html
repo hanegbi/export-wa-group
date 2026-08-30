@@ -6,6 +6,18 @@
 </head>
 <body>
   <h1>WhatsApp Group Export</h1>
+  <div class="range-row">
+    <label class="range-field">
+      From
+      <input type="datetime-local" id="range-from" />
+      <span class="range-hint">blank = now</span>
+    </label>
+    <label class="range-field">
+      To
+      <input type="datetime-local" id="range-to" />
+      <span class="range-hint">blank = full history</span>
+    </label>
+  </div>
   <div id="status-area"></div>
   <h2>Exports</h2>
   <div id="export-list"></div>
