@@ -15,7 +15,14 @@ function render(state) {
   const exportBtn = document.getElementById('export-btn');
   if (exportBtn && !exportBtn.disabled) {
     exportBtn.addEventListener('click', () => {
-      chrome.tabs.sendMessage(activeTabId, { action: 'startExport' });
+      chrome.tabs.sendMessage(activeTabId, { action: 'startExport' }).catch(() => {
+        render({
+          ...state,
+          status: 'error',
+          count: 0,
+          error: 'Could not reach the WhatsApp Web tab — reload that tab, then try again.',
+        });
+      });
     });
   }
 
