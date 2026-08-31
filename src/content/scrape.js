@@ -9,3 +9,7 @@ export function parsePrePlainText(raw) {
 export function buildLine({ time, sender, text }) {
   return time ? `[${time}] ${sender}: ${text}` : `${sender}: ${text}`;
 }
+
+export function looksLikeLoadOlderPrompt(text) {
+  return /older messages/i.test(text);
+}

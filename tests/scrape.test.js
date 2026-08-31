@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parsePrePlainText, buildLine } from '../src/content/scrape.js';
+import { parsePrePlainText, buildLine, looksLikeLoadOlderPrompt } from '../src/content/scrape.js';
 
 test('parsePrePlainText extracts the bracketed timestamp and sender', () => {
   assert.deepEqual(parsePrePlainText('[14:32, 8/30/2026] Danny: '), {
@@ -33,4 +33,15 @@ test('buildLine omits brackets when time is null (system messages)', () => {
     buildLine({ time: null, sender: 'System', text: 'Danny joined using this group\'s invite link' }),
     "System: Danny joined using this group's invite link",
   );
+});
+
+test('looksLikeLoadOlderPrompt matches WhatsApp\'s "get older messages" prompt', () => {
+  assert.equal(looksLikeLoadOlderPrompt('Click here to get your older messages from your phone'), true);
+  assert.equal(looksLikeLoadOlderPrompt('Get older messages'), true);
+  assert.equal(looksLikeLoadOlderPrompt('OLDER MESSAGES'), true);
+});
+
+test('looksLikeLoadOlderPrompt does not match ordinary message text', () => {
+  assert.equal(looksLikeLoadOlderPrompt('see you at 8'), false);
+  assert.equal(looksLikeLoadOlderPrompt(''), false);
 });
