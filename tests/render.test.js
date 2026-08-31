@@ -52,6 +52,13 @@ test('renderExportList renders one card per export, newest first order preserved
   assert.ok(html.indexOf('data-export-id="2"') < html.indexOf('data-export-id="1"'));
 });
 
+test('renderExportList wraps name+date in a shrinkable container and puts the full name in a title', () => {
+  const longName = 'A'.repeat(200);
+  const html = renderExportList([{ id: '1', groupName: longName, date: '2026-08-29T09:05:00Z' }]);
+  assert.match(html, /class="export-card-info"/);
+  assert.match(html, new RegExp(`class="name" title="${longName}"`));
+});
+
 test('renderExportList includes download, copy, and delete icon buttons for each export', () => {
   const html = renderExportList([{ id: '1', groupName: 'Work', date: '2026-08-29T09:05:00Z' }]);
   assert.match(html, /class="icon-btn download-btn"/);

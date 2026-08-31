@@ -38,8 +38,8 @@ export function renderExportList(exports) {
     .map(
       (item) => `
       <div class="export-card">
-        <div>
-          <div class="name">${escapeHtml(item.groupName)}</div>
+        <div class="export-card-info">
+          <div class="name" title="${escapeHtml(item.groupName)}">${escapeHtml(item.groupName)}</div>
           <div class="date">${formatDateTimeLabel(item.date)}</div>
         </div>
         <div class="card-actions">
