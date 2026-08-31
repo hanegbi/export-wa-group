@@ -1,4 +1,5 @@
 const SCROLL_WAIT_MS = 700;
+const LOAD_OLDER_WAIT_MS = 3000;
 const MAX_STALE_PASSES = 4;
 const MAX_RUNTIME_MS = 20 * 60 * 1000;
 
@@ -39,6 +40,19 @@ function findMessageRows(pane) {
   return Array.from(pane.querySelectorAll('div[data-id]'));
 }
 
+// WhatsApp only keeps a limited local history and shows a clickable
+// "Click here to get your older messages from your phone" prompt once
+// that runs out; scrolling alone won't fetch past it, it must be clicked.
+function findLoadOlderMessagesButton(pane, looksLikeLoadOlderPrompt) {
+  const candidates = pane.querySelectorAll('[role="button"], button');
+  for (const el of candidates) {
+    if (!el.closest('[data-id]') && looksLikeLoadOlderPrompt(el.innerText || '')) {
+      return el;
+    }
+  }
+  return null;
+}
+
 function readRow(row, { parsePrePlainText, buildLine, parseWhatsAppTimestamp, fieldOrder }) {
   const id = row.getAttribute('data-id');
   if (!id) return null;
@@ -66,10 +80,6 @@ function readRow(row, { parsePrePlainText, buildLine, parseWhatsAppTimestamp, fi
   return { id, line: buildLine({ time: null, sender: 'Unknown', text: fallbackText }), date: null };
 }
 
-async function setState(state) {
-  await chrome.storage.session.set({ waState: state });
-}
-
 async function getState(initialState) {
   const { waState } = await chrome.storage.session.get('waState');
   return waState || initialState();
@@ -79,10 +89,10 @@ async function runExport({ from, to } = {}) {
   cancelRequested = false;
 
   const base = chrome.runtime.getURL('src/content');
-  const { parsePrePlainText, buildLine } = await import(`${base}/scrape.js`);
+  const { parsePrePlainText, buildLine, looksLikeLoadOlderPrompt } = await import(`${base}/scrape.js`);
   const { createAccumulator, addPass, getText } = await import(`${base}/accumulate.js`);
   const { getDateFieldOrder, parseWhatsAppTimestamp, isWithinRange } = await import(`${base}/timestamp.js`);
-  const { initialState, startRunning, updateProgress, completeExport, failExport } = await import(
+  const { initialState, startRunning, updateProgress, completeExport, failExport, persistState } = await import(
     chrome.runtime.getURL('src/shared/storageState.js')
   );
 
@@ -92,12 +102,12 @@ async function runExport({ from, to } = {}) {
   const groupName = findGroupName();
   if (!pane || !groupName) {
     state = failExport(state, 'Open a chat on web.whatsapp.com first.');
-    await setState(state);
+    await persistState(state);
     return;
   }
 
   state = startRunning(state);
-  await setState(state);
+  await persistState(state);
 
   const fromDate = from ? new Date(from) : null;
   const toDate = to ? new Date(to) : null;
@@ -129,7 +139,15 @@ async function runExport({ from, to } = {}) {
     accumulator = result.accumulator;
 
     state = updateProgress(state, accumulator.lines.length);
-    await setState(state);
+    await persistState(state);
+
+    const olderBtn = findLoadOlderMessagesButton(pane, looksLikeLoadOlderPrompt);
+    if (olderBtn) {
+      olderBtn.click();
+      stalePasses = 0;
+      await sleep(LOAD_OLDER_WAIT_MS);
+      continue;
+    }
 
     const heightUnchanged = pane.scrollHeight === lastScrollHeight;
     stalePasses = result.addedCount === 0 && heightUnchanged ? stalePasses + 1 : 0;
@@ -150,7 +168,7 @@ async function runExport({ from, to } = {}) {
     text: getText(accumulator),
   };
   state = completeExport(state, entry);
-  await setState(state);
+  await persistState(state);
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -160,6 +178,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   } else if (message && message.action === 'cancelExport') {
     cancelRequested = true;
     sendResponse({ cancelled: true });
+  } else if (message && message.action === 'checkChatOpen') {
+    sendResponse({ hasChat: Boolean(findMessagePane() && findGroupName()) });
   }
   return false;
 });

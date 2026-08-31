@@ -1,12 +1,13 @@
 import { renderStatus, renderExportList } from './render.js';
 import { buildFilename, formatDateTimeLabel } from '../shared/format.js';
-import { initialState, deleteExport } from '../shared/storageState.js';
+import { initialState, deleteExport, persistState } from '../shared/storageState.js';
 
 const statusArea = document.getElementById('status-area');
 const exportList = document.getElementById('export-list');
 const rangeRow = document.getElementById('range-row');
 const rangeToggle = document.getElementById('range-toggle');
-const rangeSummaryText = document.getElementById('range-summary-text');
+const rangeSummaryFrom = document.getElementById('range-summary-from');
+const rangeSummaryTo = document.getElementById('range-summary-to');
 const rangeFromInput = document.getElementById('range-from');
 const rangeToInput = document.getElementById('range-to');
 
@@ -16,7 +17,8 @@ let disabledReason = null;
 function updateRangeSummary() {
   const from = rangeFromInput.value ? formatDateTimeLabel(rangeFromInput.value) : 'Now';
   const to = rangeToInput.value ? formatDateTimeLabel(rangeToInput.value) : 'End';
-  rangeSummaryText.textContent = `From: ${from}   To: ${to}`;
+  rangeSummaryFrom.textContent = `From: ${from}`;
+  rangeSummaryTo.textContent = `To: ${to}`;
 }
 
 rangeToggle.addEventListener('click', () => {
@@ -27,10 +29,6 @@ rangeToggle.addEventListener('click', () => {
 
 rangeFromInput.addEventListener('input', updateRangeSummary);
 rangeToInput.addEventListener('input', updateRangeSummary);
-
-async function setStorageState(state) {
-  await chrome.storage.session.set({ waState: state });
-}
 
 function render(state) {
   statusArea.innerHTML = renderStatus({ ...state, disabledReason });
@@ -55,7 +53,14 @@ function render(state) {
   const cancelBtn = document.getElementById('cancel-btn');
   if (cancelBtn) {
     cancelBtn.addEventListener('click', () => {
-      chrome.tabs.sendMessage(activeTabId, { action: 'cancelExport' });
+      chrome.tabs.sendMessage(activeTabId, { action: 'cancelExport' }).catch(() => {
+        render({
+          ...state,
+          status: 'error',
+          count: 0,
+          error: 'Could not reach the WhatsApp Web tab — reload that tab, then try again.',
+        });
+      });
     });
   }
 
@@ -88,7 +93,7 @@ function render(state) {
 
   for (const btn of exportList.querySelectorAll('.delete-btn')) {
     btn.addEventListener('click', () => {
-      setStorageState(deleteExport(state, btn.dataset.exportId));
+      persistState(deleteExport(state, btn.dataset.exportId));
     });
   }
 }
@@ -102,9 +107,18 @@ async function init() {
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   activeTabId = tab && tab.id;
-  disabledReason = tab && tab.url && tab.url.startsWith('https://web.whatsapp.com/')
-    ? null
-    : 'Open a chat on web.whatsapp.com first.';
+
+  const onWhatsApp = Boolean(tab && tab.url && tab.url.startsWith('https://web.whatsapp.com/'));
+  if (!onWhatsApp) {
+    disabledReason = 'Open a chat on web.whatsapp.com first.';
+  } else {
+    try {
+      const response = await chrome.tabs.sendMessage(activeTabId, { action: 'checkChatOpen' });
+      disabledReason = response && response.hasChat ? null : 'Open a chat to export.';
+    } catch {
+      disabledReason = 'Reload the WhatsApp Web tab, then reopen this popup.';
+    }
+  }
 
   const { waState } = await chrome.storage.session.get('waState');
   render(waState || initialState());
