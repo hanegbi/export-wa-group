@@ -2,6 +2,10 @@ export function initialState() {
   return { status: 'idle', count: 0, error: null, exports: [] };
 }
 
+export async function persistState(state) {
+  await chrome.storage.session.set({ waState: state });
+}
+
 export function startRunning(state) {
   return { ...state, status: 'running', count: 0, error: null };
 }
