@@ -47,30 +47,10 @@ h2 {
 
 /* --- date range --- */
 
-.range-summary {
-  margin: 12px 0 4px;
-  font-size: 12px;
-}
-
-.link-btn {
-  flex: none;
-  border: none;
-  background: transparent;
-  color: var(--accent);
-  font: inherit;
-  font-weight: 600;
-  padding: 0;
-  cursor: pointer;
-}
-
-.link-btn:hover {
-  text-decoration: underline;
-}
-
 .range-row {
   display: flex;
   gap: 8px;
-  margin: 8px 0 12px;
+  margin: 12px 0;
 }
 
 .range-field {

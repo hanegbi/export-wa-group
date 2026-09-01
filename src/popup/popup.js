@@ -4,19 +4,11 @@ import { initialState, deleteExport, persistState } from '../shared/storageState
 
 const statusArea = document.getElementById('status-area');
 const exportList = document.getElementById('export-list');
-const rangeRow = document.getElementById('range-row');
-const rangeToggle = document.getElementById('range-toggle');
 const rangeFromInput = document.getElementById('range-from');
 const rangeToInput = document.getElementById('range-to');
 
 let activeTabId = null;
 let disabledReason = null;
-
-rangeToggle.addEventListener('click', () => {
-  const willShow = rangeRow.hidden;
-  rangeRow.hidden = !willShow;
-  rangeToggle.textContent = willShow ? 'Done' : 'Change Date';
-});
 
 function render(state) {
   statusArea.innerHTML = renderStatus({ ...state, disabledReason });
