@@ -48,26 +48,8 @@ h2 {
 /* --- date range --- */
 
 .range-summary {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
   margin: 12px 0 4px;
   font-size: 12px;
-  color: var(--muted);
-}
-
-.range-summary-lines {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.range-summary-lines span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .link-btn {
