@@ -62,9 +62,13 @@ function render(state) {
     btn.addEventListener('click', async () => {
       const entry = state.exports.find((item) => item.id === btn.dataset.exportId);
       if (!entry) return;
-      await navigator.clipboard.writeText(entry.text);
       const original = btn.title;
-      btn.title = 'Copied!';
+      try {
+        await navigator.clipboard.writeText(entry.text);
+        btn.title = 'Copied!';
+      } catch {
+        btn.title = 'Copy failed';
+      }
       setTimeout(() => {
         btn.title = original;
       }, 1200);
@@ -73,7 +77,14 @@ function render(state) {
 
   for (const btn of exportList.querySelectorAll('.delete-btn')) {
     btn.addEventListener('click', () => {
-      persistState(deleteExport(state, btn.dataset.exportId));
+      persistState(deleteExport(state, btn.dataset.exportId)).catch(() => {
+        render({
+          ...state,
+          status: 'error',
+          count: 0,
+          error: 'Could not delete that export — try again.',
+        });
+      });
     });
   }
 }

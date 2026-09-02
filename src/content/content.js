@@ -109,66 +109,81 @@ async function runExport({ from, to } = {}) {
   state = startRunning(state);
   await persistState(state);
 
-  const fromDate = from ? new Date(from) : null;
-  const toDate = to ? new Date(to) : null;
-  const fieldOrder = getDateFieldOrder(navigator.language);
-  const readOpts = { parsePrePlainText, buildLine, parseWhatsAppTimestamp, fieldOrder };
+  try {
+    const fromDate = from ? new Date(from) : null;
+    const toDate = to ? new Date(to) : null;
+    const fieldOrder = getDateFieldOrder(navigator.language);
+    const readOpts = { parsePrePlainText, buildLine, parseWhatsAppTimestamp, fieldOrder };
 
-  let accumulator = createAccumulator();
-  let stalePasses = 0;
-  let lastScrollHeight = -1;
-  let stopReason = null;
-  const startTime = Date.now();
+    let accumulator = createAccumulator();
+    let stalePasses = 0;
+    let lastScrollHeight = -1;
+    let stopReason = null;
+    const startTime = Date.now();
 
-  while (true) {
-    if (cancelRequested) {
-      stopReason = 'cancelled';
-      break;
+    while (true) {
+      if (cancelRequested) {
+        stopReason = 'cancelled';
+        break;
+      }
+      if (Date.now() - startTime >= MAX_RUNTIME_MS) {
+        stopReason = 'timeout';
+        break;
+      }
+
+      const allRows = findMessageRows(pane)
+        .map((row) => readRow(row, readOpts))
+        .filter(Boolean);
+      const inRangeRows = allRows.filter((row) => isWithinRange(row.date, fromDate, toDate));
+
+      const result = addPass(accumulator, inRangeRows);
+      accumulator = result.accumulator;
+
+      state = updateProgress(state, accumulator.lines.length);
+      try {
+        await persistState(state);
+      } catch (err) {
+        // Non-fatal: a stalled live counter isn't worth aborting a long
+        // scroll over. The final save below is what actually matters.
+        console.warn('WhatsApp Group Export: failed to persist progress, continuing', err);
+      }
+
+      const olderBtn = findLoadOlderMessagesButton(pane, looksLikeLoadOlderPrompt);
+      if (olderBtn) {
+        olderBtn.click();
+        stalePasses = 0;
+        await sleep(LOAD_OLDER_WAIT_MS);
+        continue;
+      }
+
+      const heightUnchanged = pane.scrollHeight === lastScrollHeight;
+      stalePasses = result.addedCount === 0 && heightUnchanged ? stalePasses + 1 : 0;
+      lastScrollHeight = pane.scrollHeight;
+
+      const pastCutoff = Boolean(toDate) && allRows.some((row) => row.date && row.date < toDate);
+      if (pastCutoff || stalePasses >= MAX_STALE_PASSES) break;
+
+      pane.scrollTop = 0;
+      await sleep(SCROLL_WAIT_MS);
     }
-    if (Date.now() - startTime >= MAX_RUNTIME_MS) {
-      stopReason = 'timeout';
-      break;
-    }
 
-    const allRows = findMessageRows(pane)
-      .map((row) => readRow(row, readOpts))
-      .filter(Boolean);
-    const inRangeRows = allRows.filter((row) => isWithinRange(row.date, fromDate, toDate));
-
-    const result = addPass(accumulator, inRangeRows);
-    accumulator = result.accumulator;
-
-    state = updateProgress(state, accumulator.lines.length);
+    const suffix = stopReason === 'timeout' ? ' (partial)' : stopReason === 'cancelled' ? ' (cancelled)' : '';
+    const entry = {
+      id: `${Date.now()}`,
+      groupName: `${groupName}${suffix}`,
+      date: new Date().toISOString(),
+      text: getText(accumulator),
+    };
+    state = completeExport(state, entry);
     await persistState(state);
-
-    const olderBtn = findLoadOlderMessagesButton(pane, looksLikeLoadOlderPrompt);
-    if (olderBtn) {
-      olderBtn.click();
-      stalePasses = 0;
-      await sleep(LOAD_OLDER_WAIT_MS);
-      continue;
-    }
-
-    const heightUnchanged = pane.scrollHeight === lastScrollHeight;
-    stalePasses = result.addedCount === 0 && heightUnchanged ? stalePasses + 1 : 0;
-    lastScrollHeight = pane.scrollHeight;
-
-    const pastCutoff = Boolean(toDate) && allRows.some((row) => row.date && row.date < toDate);
-    if (pastCutoff || stalePasses >= MAX_STALE_PASSES) break;
-
-    pane.scrollTop = 0;
-    await sleep(SCROLL_WAIT_MS);
+  } catch (err) {
+    // Whatever broke — a full storage quota, an unexpected DOM change,
+    // anything — the popup must never see "Exporting…" hang forever.
+    state = failExport(state, `Export failed: ${err.message || err}`);
+    await persistState(state).catch((persistErr) => {
+      console.error('WhatsApp Group Export: failed to persist the failure state itself', persistErr);
+    });
   }
-
-  const suffix = stopReason === 'timeout' ? ' (partial)' : stopReason === 'cancelled' ? ' (cancelled)' : '';
-  const entry = {
-    id: `${Date.now()}`,
-    groupName: `${groupName}${suffix}`,
-    date: new Date().toISOString(),
-    text: getText(accumulator),
-  };
-  state = completeExport(state, entry);
-  await persistState(state);
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {

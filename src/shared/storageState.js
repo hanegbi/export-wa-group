@@ -1,3 +1,8 @@
+// chrome.storage.session has a ~10MB quota shared across everything this
+// extension stores, and each export's full text lives in this list — cap
+// how many stick around so an active session can't silently exceed it.
+const MAX_KEPT_EXPORTS = 15;
+
 export function initialState() {
   return { status: 'idle', count: 0, error: null, exports: [] };
 }
@@ -20,7 +25,7 @@ export function completeExport(state, entry) {
     status: 'done',
     count: 0,
     error: null,
-    exports: [entry, ...state.exports],
+    exports: [entry, ...state.exports].slice(0, MAX_KEPT_EXPORTS),
   };
 }
 

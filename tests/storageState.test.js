@@ -39,6 +39,15 @@ test('completeExport prepends the new export and resets to idle-ready done state
   });
 });
 
+test('completeExport keeps only the 15 most recent exports', () => {
+  const exports = Array.from({ length: 15 }, (_, i) => ({ id: `old-${i}` }));
+  const state = { status: 'running', count: 0, error: null, exports };
+  const result = completeExport(state, { id: 'new' });
+  assert.equal(result.exports.length, 15);
+  assert.equal(result.exports[0].id, 'new');
+  assert.equal(result.exports.at(-1).id, 'old-13');
+});
+
 test('failExport records the error and keeps existing exports', () => {
   const state = { status: 'running', count: 5, error: null, exports: [{ id: 'old' }] };
   assert.deepEqual(failExport(state, 'no chat open'), {
