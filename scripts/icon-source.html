@@ -1,7 +1,7 @@
 <!--
   Source for the extension's icons. Renders a 512x512 canvas using two
   Feather Icons (https://feathericons.com, MIT licensed): "message-circle"
-  (filled, as the bubble) and "users" (as the group badge in the corner).
+  (filled, as the bubble) and "users" (in the group badge).
 
   To regenerate: open this file in a browser at exactly 512x512 content
   size, screenshot it, then run:
@@ -15,40 +15,46 @@
   .icon-canvas {
     width: 512px;
     height: 512px;
-    background: #25d366;
+    background: linear-gradient(145deg, #34e07a 0%, #1fb757 100%);
     border-radius: 112px;
     position: relative;
     overflow: hidden;
   }
   .bubble {
     position: absolute;
-    top: 46%;
-    left: 50%;
+    top: 45%;
+    left: 47%;
     transform: translate(-50%, -50%);
-    width: 340px;
-    height: 340px;
+    width: 320px;
+    height: 320px;
+    filter: drop-shadow(0 14px 18px rgba(0, 60, 30, 0.28));
   }
   .bubble svg { width: 100%; height: 100%; display: block; }
   .w-letter {
     position: absolute;
-    top: 40%;
-    left: 50%;
+    top: 39%;
+    left: 47%;
     transform: translate(-50%, -50%);
-    color: #25d366;
+    color: #1fb757;
     font-family: Arial, sans-serif;
     font-weight: 800;
-    font-size: 168px;
+    font-size: 158px;
     line-height: 1;
   }
   .group-badge {
     position: absolute;
-    right: 46px;
-    bottom: 46px;
-    width: 128px;
-    height: 128px;
-    color: #ffffff;
+    right: 34px;
+    bottom: 34px;
+    width: 168px;
+    height: 168px;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 10px 16px rgba(0, 40, 20, 0.32);
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
-  .group-badge svg { width: 100%; height: 100%; display: block; }
+  .group-badge svg { width: 62%; height: 62%; display: block; color: #1fb757; }
 </style>
 </head>
 <body>
