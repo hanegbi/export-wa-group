@@ -6,20 +6,22 @@ import {
   updateProgress,
   completeExport,
   failExport,
+  finishWithNotice,
   deleteExport,
 } from '../src/shared/storageState.js';
 
 test('initialState starts idle with no exports', () => {
-  assert.deepEqual(initialState(), { status: 'idle', count: 0, note: null, error: null, exports: [] });
+  assert.deepEqual(initialState(), { status: 'idle', count: 0, note: null, error: null, notice: null, exports: [] });
 });
 
 test('startRunning resets count, note and error, keeps existing exports', () => {
-  const state = { status: 'error', count: 12, note: 'stale', error: 'boom', exports: [{ id: '1' }] };
+  const state = { status: 'error', count: 12, note: 'stale', error: 'boom', notice: 'old', exports: [{ id: '1' }] };
   assert.deepEqual(startRunning(state), {
     status: 'running',
     count: 0,
     note: null,
     error: null,
+    notice: null,
     exports: [{ id: '1' }],
   });
 });
@@ -44,6 +46,7 @@ test('completeExport prepends the new export and resets to idle-ready done state
     count: 0,
     note: null,
     error: null,
+    notice: null,
     exports: [entry, { id: 'old' }],
   });
 });
@@ -64,6 +67,7 @@ test('failExport records the error and keeps existing exports', () => {
     count: 5,
     note: null,
     error: 'no chat open',
+    notice: null,
     exports: [{ id: 'old' }],
   });
 });
@@ -81,4 +85,16 @@ test('deleteExport removes the export with the matching id', () => {
 test('deleteExport is a no-op when the id is not found', () => {
   const state = { status: 'idle', count: 0, error: null, exports: [{ id: 'a' }] };
   assert.deepEqual(deleteExport(state, 'missing'), state);
+});
+
+test('finishWithNotice ends the run successfully with a message and no error', () => {
+  const state = { status: 'running', count: 5, note: 'Waiting…', error: null, notice: null, exports: [{ id: 'old' }] };
+  assert.deepEqual(finishWithNotice(state, 'Saved to Downloads.'), {
+    status: 'done',
+    count: 0,
+    note: null,
+    error: null,
+    notice: 'Saved to Downloads.',
+    exports: [{ id: 'old' }],
+  });
 });

@@ -29,9 +29,9 @@ test('buildFilename combines sanitized name, date, and extension', () => {
   assert.equal(buildFilename('Family <3>', date), 'Family _3__2026-08-30.txt');
 });
 
-test('formatDateTimeLabel renders a readable date and time from an ISO timestamp', () => {
+test('formatDateTimeLabel renders a short date and time, no year', () => {
   const label = formatDateTimeLabel('2026-08-30T14:15:00Z');
-  assert.match(label, /^[A-Z][a-z]{2} \d{1,2}, \d{4}, \d{1,2}:\d{2}\s?[AP]M$/);
+  assert.match(label, /^[A-Z][a-z]{2} \d{1,2}, \d{1,2}:\d{2}\s?[AP]M$/);
 });
 
 test('escapeHtml escapes the five reserved HTML characters', () => {

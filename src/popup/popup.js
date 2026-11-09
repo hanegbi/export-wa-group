@@ -9,9 +9,10 @@ const rangeToInput = document.getElementById('range-to');
 
 let activeTabId = null;
 let disabledReason = null;
+let chatName = null;
 
 function render(state) {
-  statusArea.innerHTML = renderStatus({ ...state, disabledReason });
+  statusArea.innerHTML = renderStatus({ ...state, disabledReason, chatName });
   exportList.innerHTML = renderExportList(state.exports);
 
   const exportBtn = document.getElementById('export-btn');
@@ -107,6 +108,7 @@ async function init() {
     try {
       const response = await chrome.tabs.sendMessage(activeTabId, { action: 'checkChatOpen' });
       disabledReason = response && response.hasChat ? null : 'Open a chat to export.';
+      chatName = (response && response.groupName) || null;
       tabIsExporting = Boolean(response && response.running);
     } catch {
       disabledReason = 'Reload the WhatsApp Web tab, then reopen this popup.';

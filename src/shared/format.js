@@ -14,12 +14,12 @@ export function buildFilename(groupName, date) {
   return `${sanitizeFilename(groupName)}_${formatDateISO(date)}.txt`;
 }
 
+// Exports only live until the browser restarts, so the year is noise.
 export function formatDateTimeLabel(isoDateTime) {
   const date = new Date(isoDateTime);
   return date.toLocaleString('en-US', {
     month: 'short',
     day: 'numeric',
-    year: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
   });

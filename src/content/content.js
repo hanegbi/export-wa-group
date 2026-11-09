@@ -193,7 +193,7 @@ async function exportChat({ from, to }) {
   const { createAccumulator, addPass, getText } = await import(`${base}/accumulate.js`);
   const { getDateFieldOrder, parseWhatsAppTimestamp, isWithinRange } = await import(`${base}/timestamp.js`);
   const { createLoadWatch, recordPass, resetQuiet, msUntilGiveUp, waitNote } = await import(`${base}/loadWatch.js`);
-  const { initialState, startRunning, updateProgress, completeExport, failExport, persistState } = await import(
+  const { initialState, startRunning, updateProgress, completeExport, finishWithNotice, failExport, persistState } = await import(
     chrome.runtime.getURL('src/shared/storageState.js')
   );
   const { buildFilename } = await import(chrome.runtime.getURL('src/shared/format.js'));
@@ -302,6 +302,7 @@ async function exportChat({ from, to }) {
       groupName: `${groupName}${suffix}`,
       date: new Date().toISOString(),
       text: getText(accumulator),
+      lineCount: accumulator.lines.length,
     };
 
     state = await withCurrentExports(state);
@@ -315,10 +316,7 @@ async function exportChat({ from, to }) {
       const filename = buildFilename(entry.groupName, new Date(entry.date));
       downloadTextFile(filename, entry.text);
       await persistState(
-        failExport(
-          updateProgress(state, 0),
-          `This export is too large to keep in the list, so it was saved straight to your Downloads folder as "${filename}".`,
-        ),
+        finishWithNotice(state, `Too large to keep in this list, so it was saved to your Downloads folder as "${filename}".`),
       );
     }
   } catch (err) {
@@ -350,7 +348,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     cancelRequested = true;
     sendResponse({ cancelled: true });
   } else if (message && message.action === 'checkChatOpen') {
-    sendResponse({ hasChat: Boolean(findMessagePane() && findGroupName()), running });
+    const groupName = findGroupName();
+    sendResponse({ hasChat: Boolean(findMessagePane() && groupName), groupName, running });
   }
   return false;
 });

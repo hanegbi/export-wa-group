@@ -2,58 +2,69 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { renderStatus, renderExportList } from '../src/popup/render.js';
 
+const idle = { status: 'idle', count: 0, note: null, error: null, notice: null, disabledReason: null, chatName: null };
+
 test('renderStatus shows a disabled button with a hint when disabledReason is set', () => {
-  const html = renderStatus({ status: 'idle', count: 0, error: null, disabledReason: 'Open a chat on web.whatsapp.com first.' });
+  const html = renderStatus({ ...idle, disabledReason: 'Open a chat on web.whatsapp.com first.' });
   assert.match(html, /<button class="primary" id="export-btn" disabled>/);
   assert.match(html, /Open a chat on web\.whatsapp\.com first\./);
 });
 
 test('renderStatus shows an enabled button when idle and not disabled', () => {
-  const html = renderStatus({ status: 'idle', count: 0, error: null, disabledReason: null });
+  const html = renderStatus(idle);
   assert.match(html, /<button class="primary" id="export-btn">Export this group<\/button>/);
 });
 
-test('renderStatus shows a live progress message while running', () => {
-  const html = renderStatus({ status: 'running', count: 812, error: null, disabledReason: null });
-  assert.match(html, /class="progress"/);
-  assert.match(html, /Scanning… 812 messages found/);
+test('renderStatus names the open chat on the button, escaped', () => {
+  const html = renderStatus({ ...idle, chatName: 'Hiking <Club>' });
+  assert.match(html, /<button class="primary" id="export-btn">Export <span class="chat-name">Hiking &lt;Club&gt;<\/span><\/button>/);
+});
+
+test('renderStatus shows a live counter and progress bar while running', () => {
+  const html = renderStatus({ ...idle, status: 'running', count: 4812 });
+  assert.match(html, /class="progress-bar"/);
+  assert.match(html, /class="count">4,812</);
+  assert.match(html, /messages found/);
 });
 
 test('renderStatus shows an escaped wait note under the counter while running', () => {
-  const html = renderStatus({
-    status: 'running',
-    count: 812,
-    note: 'No new messages <yet>',
-    error: null,
-    disabledReason: null,
-  });
-  assert.match(html, /class="hint">No new messages &lt;yet&gt;</);
+  const html = renderStatus({ ...idle, status: 'running', count: 812, note: 'No new messages <yet>' });
+  assert.match(html, /class="wait-note">No new messages &lt;yet&gt;</);
 });
 
 test('renderStatus shows no note line when there is no note', () => {
-  const html = renderStatus({ status: 'running', count: 812, note: null, error: null, disabledReason: null });
-  assert.doesNotMatch(html, /class="hint"/);
+  const html = renderStatus({ ...idle, status: 'running', count: 812 });
+  assert.doesNotMatch(html, /class="wait-note"/);
 });
 
-test('renderStatus shows the error message when status is error', () => {
-  const html = renderStatus({ status: 'error', count: 0, error: 'No chat is open.', disabledReason: null });
-  assert.match(html, /class="error"/);
-  assert.match(html, /No chat is open\./);
+test('renderStatus shows the error message in an error callout', () => {
+  const html = renderStatus({ ...idle, status: 'error', error: 'No chat is <open>.' });
+  assert.match(html, /class="callout error"/);
+  assert.match(html, /No chat is &lt;open&gt;\./);
+});
+
+test('renderStatus shows a notice in a neutral callout with the export button enabled', () => {
+  const html = renderStatus({ ...idle, status: 'done', notice: 'Saved to Downloads as "Work.txt".' });
+  assert.match(html, /<button class="primary" id="export-btn">/);
+  assert.match(html, /class="callout notice"/);
+  assert.match(html, /Saved to Downloads as &quot;Work\.txt&quot;\./);
+  assert.doesNotMatch(html, /callout error/);
 });
 
 test('renderStatus includes a cancel button while running', () => {
-  const html = renderStatus({ status: 'running', count: 5, error: null, disabledReason: null });
+  const html = renderStatus({ ...idle, status: 'running', count: 5 });
   assert.match(html, /id="cancel-btn"/);
-  assert.match(html, /title="Cancel export"/);
+  assert.match(html, /title="Stop and save what was found"/);
 });
 
 test('renderStatus omits the cancel button when idle', () => {
-  const html = renderStatus({ status: 'idle', count: 0, error: null, disabledReason: null });
-  assert.doesNotMatch(html, /id="cancel-btn"/);
+  assert.doesNotMatch(renderStatus(idle), /id="cancel-btn"/);
 });
 
 test('renderExportList shows an empty state with no exports', () => {
-  assert.match(renderExportList([]), /class="empty-state"/);
+  const html = renderExportList([]);
+  assert.match(html, /class="empty-state"/);
+  assert.match(html, /No exports yet/);
 });
 
 test('renderExportList renders one card per export, newest first order preserved, with escaped names', () => {
@@ -73,6 +84,20 @@ test('renderExportList wraps name+date in a shrinkable container and puts the fu
   const html = renderExportList([{ id: '1', groupName: longName, date: '2026-08-29T09:05:00Z' }]);
   assert.match(html, /class="export-card-info"/);
   assert.match(html, new RegExp(`class="name" title="${longName}"`));
+});
+
+test('renderExportList shows the message count when the export recorded one', () => {
+  const html = renderExportList([{ id: '1', groupName: 'Work', date: '2026-08-29T09:05:00Z', lineCount: 4812 }]);
+  assert.match(html, /4,812 messages/);
+  const legacy = renderExportList([{ id: '1', groupName: 'Work', date: '2026-08-29T09:05:00Z' }]);
+  assert.doesNotMatch(legacy, /messages/);
+});
+
+test('renderExportList turns a cancelled/partial suffix into a tag and keeps the clean name', () => {
+  const html = renderExportList([{ id: '1', groupName: 'Work (cancelled)', date: '2026-08-29T09:05:00Z' }]);
+  assert.match(html, /class="name" title="Work">Work</);
+  assert.match(html, /class="tag">cancelled</);
+  assert.match(renderExportList([{ id: '1', groupName: 'Work (partial)', date: '2026-08-29T09:05:00Z' }]), /class="tag">partial</);
 });
 
 test('renderExportList includes download, copy, and delete icon buttons for each export', () => {

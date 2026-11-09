@@ -80,14 +80,22 @@ scrolling first and reading after:
 4. Output line format: `[time] Sender: message`, one message per line.
 
 ## Popup UI
-~340px wide, WhatsApp-green accent, system font, light/dark aware via
-`prefers-color-scheme`.
-- Primary button "Export this group", replaced by a live counter while
-  running.
+~340px wide, WhatsApp-green accent, system font, light theme only (no
+dark mode by decision).
+- Primary button "Export <chat name>" (the content script reports the open
+  chat's name), replaced while running by a large tabular message counter,
+  an indeterminate green progress bar, a stop button, and a one-line note
+  explaining any wait.
 - If the active tab isn't `web.whatsapp.com` or no chat is open, button is
   disabled with a one-line hint instead.
-- Below: list of past exports, newest first, each a card with group name,
-  export date, Download button. Empty state: "No exports yet."
+- Outcomes that aren't failures (e.g. "saved to Downloads because it was
+  too large for the list") show in a green-tinted callout; failures in a
+  red-tinted one. Neither is bare red text.
+- Below: list of past exports, newest first, each a soft card with chat
+  name, message count, short date/time (no year — the list only lives for
+  one browser session), a "cancelled"/"partial" tag where relevant, and
+  borderless download / copy / delete icon buttons. Empty state: a small
+  chat-bubble icon with "No exports yet. Open a chat and press Export."
 
 ## Download
 On Download click, popup builds a `Blob` from the stored text and calls
