@@ -10,6 +10,9 @@ export function buildLine({ time, sender, text }) {
   return time ? `[${time}] ${sender}: ${text}` : `${sender}: ${text}`;
 }
 
+// English, plus the Hebrew wording ("הודעות ישנות" = "older messages").
+const LOAD_OLDER_PROMPT_RE = /older messages|הודעות ישנות/i;
+
 export function looksLikeLoadOlderPrompt(text) {
-  return /older messages/i.test(text);
+  return LOAD_OLDER_PROMPT_RE.test(text);
 }

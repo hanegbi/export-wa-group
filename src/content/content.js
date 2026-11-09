@@ -1,9 +1,20 @@
-const SCROLL_WAIT_MS = 700;
-const LOAD_OLDER_WAIT_MS = 3000;
-const MAX_STALE_PASSES = 4;
-const MAX_RUNTIME_MS = 20 * 60 * 1000;
+// How often to look for newly rendered rows after scrolling, and the longest
+// a single pass waits before scrolling again. Whether the export is *done*
+// is not decided here — see loadWatch.js.
+const POLL_MS = 250;
+const STEP_WAIT_MS = 1500;
+// After a change is spotted, give WhatsApp a moment to finish rendering the
+// rest of the batch before reading it.
+const SETTLE_MS = 150;
+const NUDGE_PX = 300;
+const NUDGE_SETTLE_MS = 120;
+const OLDER_CLICK_EVERY_MS = 10 * 1000;
+// Safety net only. Long chats legitimately take a long time; the real stop
+// condition is the chat going quiet.
+const MAX_RUNTIME_MS = 4 * 60 * 60 * 1000;
 
 let cancelRequested = false;
+let running = false;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -22,6 +33,22 @@ function findMessagePane() {
   return null;
 }
 
+// The element matched by findMessagePane is not guaranteed to be the one
+// that actually scrolls (WhatsApp's markup shifts between releases), and
+// setting scrollTop on a non-scrolling element silently does nothing. Walk
+// up from a message row to the nearest ancestor that really scrolls.
+function findScroller(pane) {
+  const main = document.querySelector('#main');
+  const start = pane.querySelector('div[data-id]') || pane;
+  for (let el = start; el && el !== main && el !== document.body; el = el.parentElement) {
+    const { overflowY } = getComputedStyle(el);
+    if ((overflowY === 'auto' || overflowY === 'scroll') && el.scrollHeight > el.clientHeight) {
+      return el;
+    }
+  }
+  return pane;
+}
+
 function findGroupName() {
   const header = document.querySelector('#main header');
   if (!header) return null;
@@ -36,15 +63,15 @@ function findGroupName() {
   return titleEl ? titleEl.getAttribute('title') : null;
 }
 
-function findMessageRows(pane) {
-  return Array.from(pane.querySelectorAll('div[data-id]'));
+function findMessageRows(root) {
+  return Array.from(root.querySelectorAll('div[data-id]'));
 }
 
 // WhatsApp only keeps a limited local history and shows a clickable
 // "Click here to get your older messages from your phone" prompt once
 // that runs out; scrolling alone won't fetch past it, it must be clicked.
-function findLoadOlderMessagesButton(pane, looksLikeLoadOlderPrompt) {
-  const candidates = pane.querySelectorAll('[role="button"], button');
+function findLoadOlderMessagesButton(root, looksLikeLoadOlderPrompt) {
+  const candidates = root.querySelectorAll('[role="button"], button');
   for (const el of candidates) {
     if (!el.closest('[data-id]') && looksLikeLoadOlderPrompt(el.innerText || '')) {
       return el;
@@ -80,23 +107,105 @@ function readRow(row, { parsePrePlainText, buildLine, parseWhatsAppTimestamp, fi
   return { id, line: buildLine({ time: null, sender: 'Unknown', text: fallbackText }), date: null };
 }
 
+// Reads every row in the DOM, oldest first. Rows parsed on an earlier pass
+// come from the cache: re-reading innerText for the whole (ever-growing)
+// DOM on every pass forces layout each time and makes long chats crawl.
+function harvestRows(root, rowCache, readOpts) {
+  const rows = [];
+  let newRowCount = 0;
+  for (const el of findMessageRows(root)) {
+    const id = el.getAttribute('data-id');
+    if (!id) continue;
+    let entry = rowCache.get(id);
+    if (!entry) {
+      entry = readRow(el, readOpts);
+      // Not cached when unreadable, so a row that hasn't finished rendering
+      // gets another chance on the next pass.
+      if (!entry) continue;
+      rowCache.set(id, entry);
+      newRowCount += 1;
+    }
+    rows.push(entry);
+  }
+  return { rows, newRowCount };
+}
+
+// Works for both a normal scroller (top is scrollTop 0) and a
+// column-reverse one (top is the most negative scrollTop): the browser
+// clamps this to whichever end is the top.
+function jumpToTop(scroller) {
+  scroller.scrollTop = -scroller.scrollHeight;
+}
+
+// WhatsApp loads older history in response to scroll events near the top.
+// If the pane is already at the top, jumping there again moves nothing and
+// fires no event, so a load that stalled never gets retried. Do what a
+// person does: scroll down a little, then back up.
+async function scrollToTop(scroller) {
+  const before = scroller.scrollTop;
+  jumpToTop(scroller);
+  if (scroller.scrollTop !== before) return;
+  scroller.scrollTop = before + NUDGE_PX;
+  await sleep(NUDGE_SETTLE_MS);
+  jumpToTop(scroller);
+}
+
+function paneSignature(root, scroller) {
+  const rows = findMessageRows(root);
+  const firstId = rows.length > 0 ? rows[0].getAttribute('data-id') : '';
+  return `${scroller.scrollHeight}|${rows.length}|${firstId}`;
+}
+
+// Returns as soon as the pane changes (new rows, new height), or after
+// maxMs if nothing does.
+async function waitForPaneChange(root, scroller, maxMs) {
+  const before = paneSignature(root, scroller);
+  const deadline = Date.now() + maxMs;
+  while (Date.now() < deadline && !cancelRequested) {
+    await sleep(POLL_MS);
+    if (paneSignature(root, scroller) !== before) {
+      await sleep(SETTLE_MS);
+      return;
+    }
+  }
+}
+
+function downloadTextFile(filename, text) {
+  const url = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.style.display = 'none';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60 * 1000);
+}
+
 async function getState(initialState) {
   const { waState } = await chrome.storage.session.get('waState');
   return waState || initialState();
 }
 
-async function runExport({ from, to } = {}) {
-  cancelRequested = false;
-
+async function exportChat({ from, to }) {
   const base = chrome.runtime.getURL('src/content');
   const { parsePrePlainText, buildLine, looksLikeLoadOlderPrompt } = await import(`${base}/scrape.js`);
   const { createAccumulator, addPass, getText } = await import(`${base}/accumulate.js`);
   const { getDateFieldOrder, parseWhatsAppTimestamp, isWithinRange } = await import(`${base}/timestamp.js`);
+  const { createLoadWatch, recordPass, resetQuiet, msUntilGiveUp, waitNote } = await import(`${base}/loadWatch.js`);
   const { initialState, startRunning, updateProgress, completeExport, failExport, persistState } = await import(
     chrome.runtime.getURL('src/shared/storageState.js')
   );
+  const { buildFilename } = await import(chrome.runtime.getURL('src/shared/format.js'));
 
   let state = await getState(initialState);
+
+  // The popup can delete exports while this runs; pick up its list before
+  // each write so a stale copy held here doesn't resurrect them.
+  async function withCurrentExports(current) {
+    const { waState } = await chrome.storage.session.get('waState');
+    return waState ? { ...current, exports: waState.exports } : current;
+  }
 
   const pane = findMessagePane();
   const groupName = findGroupName();
@@ -116,55 +225,75 @@ async function runExport({ from, to } = {}) {
     const readOpts = { parsePrePlainText, buildLine, parseWhatsAppTimestamp, fieldOrder };
 
     let accumulator = createAccumulator();
-    let stalePasses = 0;
-    let lastScrollHeight = -1;
+    const rowCache = new Map();
     let stopReason = null;
-    const startTime = Date.now();
+    let lastReported = null;
+    let lastOlderClickAt = 0;
+    let lastTick = Date.now();
+    let activeMs = 0;
+    let watch = createLoadWatch(lastTick);
 
     while (true) {
       if (cancelRequested) {
         stopReason = 'cancelled';
         break;
       }
-      if (Date.now() - startTime >= MAX_RUNTIME_MS) {
+
+      const now = Date.now();
+      // A hidden tab doesn't render, so WhatsApp can't load anything and
+      // timers are throttled. Keep trying, but never let hidden time count
+      // toward "the chat has gone quiet" or toward the runtime cap.
+      const hidden = document.hidden;
+      if (hidden) watch = resetQuiet(watch, now);
+      else activeMs += now - lastTick;
+      lastTick = now;
+      if (activeMs >= MAX_RUNTIME_MS) {
         stopReason = 'timeout';
         break;
       }
 
-      const allRows = findMessageRows(pane)
-        .map((row) => readRow(row, readOpts))
-        .filter(Boolean);
-      const inRangeRows = allRows.filter((row) => isWithinRange(row.date, fromDate, toDate));
+      const scroller = findScroller(pane);
+      const root = pane.contains(scroller) ? pane : scroller;
 
-      const result = addPass(accumulator, inRangeRows);
+      const { rows, newRowCount } = harvestRows(root, rowCache, readOpts);
+      const result = addPass(
+        accumulator,
+        rows.filter((row) => isWithinRange(row.date, fromDate, toDate)),
+      );
       accumulator = result.accumulator;
+      watch = recordPass(watch, { now, newRowCount, scrollHeight: scroller.scrollHeight });
 
-      state = updateProgress(state, accumulator.lines.length);
-      try {
-        await persistState(state);
-      } catch (err) {
-        // Non-fatal: a stalled live counter isn't worth aborting a long
-        // scroll over. The final save below is what actually matters.
-        console.warn('WhatsApp Group Export: failed to persist progress, continuing', err);
-      }
+      const pastCutoff = Boolean(toDate) && rows.some((row) => row.date && row.date < toDate);
+      if (pastCutoff) break;
 
-      const olderBtn = findLoadOlderMessagesButton(pane, looksLikeLoadOlderPrompt);
-      if (olderBtn) {
+      const olderBtn = findLoadOlderMessagesButton(root, looksLikeLoadOlderPrompt);
+      // Click again right away after a batch arrives; otherwise leave the
+      // phone time to answer before re-clicking.
+      if (olderBtn && (newRowCount > 0 || now - lastOlderClickAt >= OLDER_CLICK_EVERY_MS)) {
         olderBtn.click();
-        stalePasses = 0;
-        await sleep(LOAD_OLDER_WAIT_MS);
-        continue;
+        lastOlderClickAt = now;
       }
 
-      const heightUnchanged = pane.scrollHeight === lastScrollHeight;
-      stalePasses = result.addedCount === 0 && heightUnchanged ? stalePasses + 1 : 0;
-      lastScrollHeight = pane.scrollHeight;
+      const waitingOnPhone = Boolean(olderBtn);
+      const remainingMs = msUntilGiveUp(watch, now, { waitingOnPhone });
+      if (!hidden && remainingMs === 0) break;
 
-      const pastCutoff = Boolean(toDate) && allRows.some((row) => row.date && row.date < toDate);
-      if (pastCutoff || stalePasses >= MAX_STALE_PASSES) break;
+      const count = accumulator.lines.length;
+      const note = waitNote({ hidden, waitingOnPhone, quietMs: now - watch.lastActivityAt, remainingMs });
+      if (`${count}|${note}` !== lastReported) {
+        lastReported = `${count}|${note}`;
+        try {
+          state = updateProgress(await withCurrentExports(state), count, note);
+          await persistState(state);
+        } catch (err) {
+          // Non-fatal: a stalled live counter isn't worth aborting a long
+          // scroll over. The final save below is what actually matters.
+          console.warn('WhatsApp Group Export: failed to persist progress, continuing', err);
+        }
+      }
 
-      pane.scrollTop = 0;
-      await sleep(SCROLL_WAIT_MS);
+      await scrollToTop(scroller);
+      await waitForPaneChange(root, scroller, STEP_WAIT_MS);
     }
 
     const suffix = stopReason === 'timeout' ? ' (partial)' : stopReason === 'cancelled' ? ' (cancelled)' : '';
@@ -174,8 +303,24 @@ async function runExport({ from, to } = {}) {
       date: new Date().toISOString(),
       text: getText(accumulator),
     };
-    state = completeExport(state, entry);
-    await persistState(state);
+
+    state = await withCurrentExports(state);
+    try {
+      await persistState(completeExport(state, entry));
+    } catch (err) {
+      // Most likely the ~10MB session-storage quota: a long chat's text
+      // doesn't fit in the popup's list. Never throw the scraped history
+      // away over that — hand the file straight to the browser instead.
+      console.warn('WhatsApp Group Export: could not store the export, downloading it directly', err);
+      const filename = buildFilename(entry.groupName, new Date(entry.date));
+      downloadTextFile(filename, entry.text);
+      await persistState(
+        failExport(
+          updateProgress(state, 0),
+          `This export is too large to keep in the list, so it was saved straight to your Downloads folder as "${filename}".`,
+        ),
+      );
+    }
   } catch (err) {
     // Whatever broke — a full storage quota, an unexpected DOM change,
     // anything — the popup must never see "Exporting…" hang forever.
@@ -183,6 +328,17 @@ async function runExport({ from, to } = {}) {
     await persistState(state).catch((persistErr) => {
       console.error('WhatsApp Group Export: failed to persist the failure state itself', persistErr);
     });
+  }
+}
+
+async function runExport(range = {}) {
+  if (running) return;
+  running = true;
+  cancelRequested = false;
+  try {
+    await exportChat(range);
+  } finally {
+    running = false;
   }
 }
 
@@ -194,7 +350,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     cancelRequested = true;
     sendResponse({ cancelled: true });
   } else if (message && message.action === 'checkChatOpen') {
-    sendResponse({ hasChat: Boolean(findMessagePane() && findGroupName()) });
+    sendResponse({ hasChat: Boolean(findMessagePane() && findGroupName()), running });
   }
   return false;
 });

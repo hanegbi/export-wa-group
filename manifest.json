@@ -30,7 +30,9 @@
         "src/content/scrape.js",
         "src/content/accumulate.js",
         "src/content/timestamp.js",
-        "src/shared/storageState.js"
+        "src/content/loadWatch.js",
+        "src/shared/storageState.js",
+        "src/shared/format.js"
       ],
       "matches": ["https://web.whatsapp.com/*"]
     }

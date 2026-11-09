@@ -16,6 +16,14 @@ Chrome extension that exports the message history of a WhatsApp Web chat to a pl
 4. Click **Export this group**
 5. Download, copy, or delete the export from the list once it finishes
 
+### How it knows it's done
+
+WhatsApp loads older history in batches, and a batch can take a long time to arrive (longer still when it comes from your phone). The export therefore keeps scrolling up until the chat has produced nothing new for a full minute (three minutes while WhatsApp's "get older messages from your phone" prompt is showing), then saves. Expect every export to end with that one-minute pause — the popup shows a countdown. Press the stop button to finish early with what has been gathered so far.
+
+Keep the WhatsApp tab visible while it runs. A hidden tab doesn't render, so WhatsApp can't load anything; the export waits rather than giving up, and the popup says so.
+
+An export too large for the popup's list (roughly 10MB of text) is saved straight to your Downloads folder instead.
+
 ## Permissions
 
 - `storage` — holds exports and export progress in `chrome.storage.session`, which clears itself on browser restart (that's the entire "reset every restart" behavior, no extra code needed).

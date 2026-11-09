@@ -41,6 +41,10 @@ test('looksLikeLoadOlderPrompt matches WhatsApp\'s "get older messages" prompt',
   assert.equal(looksLikeLoadOlderPrompt('OLDER MESSAGES'), true);
 });
 
+test('looksLikeLoadOlderPrompt matches the prompt in a Hebrew WhatsApp', () => {
+  assert.equal(looksLikeLoadOlderPrompt('יש ללחוץ כאן כדי לקבל הודעות ישנות יותר מהטלפון'), true);
+});
+
 test('looksLikeLoadOlderPrompt does not match ordinary message text', () => {
   assert.equal(looksLikeLoadOlderPrompt('see you at 8'), false);
   assert.equal(looksLikeLoadOlderPrompt(''), false);

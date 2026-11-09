@@ -52,12 +52,20 @@ scrolling first and reading after:
       scrolling up are always older than what's already accumulated, so
       prepending keeps the final file in oldest→newest order.
    c. Update `waExportStatus` message count for live popup progress.
-   d. Set the pane's `scrollTop = 0` to trigger WhatsApp's lazy-load of
-      older history, then wait briefly for new content.
-   e. Stop when several consecutive attempts add no new rows and the pane's
-      `scrollHeight` stops changing (top of history reached), or when a hard
-      time cap is hit (safety net for pathological cases — the export is
-      still saved with whatever was captured, and flagged as partial).
+   d. Scroll the real scrolling ancestor to its top to trigger WhatsApp's
+      lazy-load of older history. If it was already at the top, scroll
+      down a little first and back up, since assigning the same scrollTop
+      fires no scroll event and a stalled load would never be retried.
+      Then poll until the pane changes (new rows or a taller scrollHeight)
+      or a short step timeout passes.
+   e. Stop only when the chat has been quiet — no never-seen rows, no new
+      record scrollHeight — for a full minute (three while the
+      "get older messages from your phone" prompt is showing). A single
+      batch from WhatsApp can take tens of seconds, so a few quiet passes
+      prove nothing. Time while the tab is hidden never counts as quiet:
+      a hidden tab doesn't render, so WhatsApp can't load. A hard time cap
+      (hours) remains as a safety net; the export is still saved and
+      flagged as partial if it hits.
 3. Row parsing:
    - Regular messages: the `data-pre-plain-text` attribute (e.g.
      `[14:32, 8/30/2026] Danny: `) gives timestamp + sender in one read —

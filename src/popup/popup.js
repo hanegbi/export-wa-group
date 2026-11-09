@@ -1,6 +1,6 @@
 import { renderStatus, renderExportList } from './render.js';
 import { buildFilename } from '../shared/format.js';
-import { initialState, deleteExport, persistState } from '../shared/storageState.js';
+import { initialState, deleteExport, failExport, persistState } from '../shared/storageState.js';
 
 const statusArea = document.getElementById('status-area');
 const exportList = document.getElementById('export-list');
@@ -100,18 +100,27 @@ async function init() {
   activeTabId = tab && tab.id;
 
   const onWhatsApp = Boolean(tab && tab.url && tab.url.startsWith('https://web.whatsapp.com/'));
+  let tabIsExporting = null;
   if (!onWhatsApp) {
     disabledReason = 'Open a chat on web.whatsapp.com first.';
   } else {
     try {
       const response = await chrome.tabs.sendMessage(activeTabId, { action: 'checkChatOpen' });
       disabledReason = response && response.hasChat ? null : 'Open a chat to export.';
+      tabIsExporting = Boolean(response && response.running);
     } catch {
       disabledReason = 'Reload the WhatsApp Web tab, then reopen this popup.';
     }
   }
 
-  const { waState } = await chrome.storage.session.get('waState');
+  let { waState } = await chrome.storage.session.get('waState');
+  // Reloading the WhatsApp tab mid-export kills the export without anyone
+  // updating storage; without this the popup would say "Exporting…" until
+  // the browser restarts.
+  if (waState && waState.status === 'running' && tabIsExporting === false) {
+    waState = failExport(waState, 'The last export was interrupted because the WhatsApp tab was reloaded.');
+    await persistState(waState);
+  }
   render(waState || initialState());
 
   chrome.storage.onChanged.addListener((changes, area) => {

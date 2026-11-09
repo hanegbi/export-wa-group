@@ -19,6 +19,22 @@ test('renderStatus shows a live progress message while running', () => {
   assert.match(html, /Scanning… 812 messages found/);
 });
 
+test('renderStatus shows an escaped wait note under the counter while running', () => {
+  const html = renderStatus({
+    status: 'running',
+    count: 812,
+    note: 'No new messages <yet>',
+    error: null,
+    disabledReason: null,
+  });
+  assert.match(html, /class="hint">No new messages &lt;yet&gt;</);
+});
+
+test('renderStatus shows no note line when there is no note', () => {
+  const html = renderStatus({ status: 'running', count: 812, note: null, error: null, disabledReason: null });
+  assert.doesNotMatch(html, /class="hint"/);
+});
+
 test('renderStatus shows the error message when status is error', () => {
   const html = renderStatus({ status: 'error', count: 0, error: 'No chat is open.', disabledReason: null });
   assert.match(html, /class="error"/);
