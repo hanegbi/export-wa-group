@@ -1,12 +1,21 @@
+<p align="center"><img src="icons/icon128.png" width="96" height="96" alt="WhatsApp Chat Export icon" /></p>
+
 # WhatsApp Chat Export
 
-Chrome extension that exports the message history of a WhatsApp Web chat to a plain text file.
+Chrome extension that exports the message history of a WhatsApp Web chat to a plain text file. Free, no message limit, and nothing leaves your computer.
 
-## Install (unpacked)
+![Save a whole WhatsApp chat as a text file](store/images/screenshot-paper-ready.png)
 
-1. Go to `chrome://extensions`
-2. Enable **Developer mode**
-3. Click **Load unpacked** and select this folder
+## Install
+
+Install it from the Chrome Web Store: search for **WhatsApp Chat Export - Download Easy, Private, No Limits**.
+
+## Screenshots
+
+| | |
+| --- | --- |
+| ![Choosing a date range](store/images/screenshot-paper-range.png) | ![An export in progress](store/images/screenshot-paper-running.png) |
+| ![The list of finished exports](store/images/screenshot-paper-list.png) | ![The exported text file](store/images/screenshot-paper-file.png) |
 
 ## Use
 
@@ -33,11 +42,17 @@ An export too large for the popup's list (roughly 10MB of text) is saved straigh
 - `activeTab` — lets the popup read the active tab's URL when you open it, to enable/disable the Export button.
 - Content-script access to `web.whatsapp.com` — reads the open chat's messages on that page only; nothing is sent anywhere off your machine.
 
+## Privacy
+
+See [PRIVACY.md](PRIVACY.md). The extension makes no network requests.
+
 ## Develop
 
 ```
 npm test
 ```
+
+To run a local copy, load this folder with **Load unpacked** on `chrome://extensions`.
 
 ## Project layout
 
