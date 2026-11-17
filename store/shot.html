@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<!--
+  One store image per URL:
+    shot.html?kind=screenshot&scene=ready|range|running|list|file&style=paper|deep|context
+    shot.html?kind=tile&style=paper|deep|lines       (440x280)
+    shot.html?kind=marquee&style=paper|deep|lines    (1400x560)
+  store/build.sh renders every combination to store/images/.
+-->
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  :root {
+    --green: #25d366;
+    --green-deep: #128c7e;
+    --ink: #06331d;
+    --tint: #e6f8ec;
+    --paper: #f3f8f4;
+    --muted: #54695c;
+    --display: Bahnschrift, "Segoe UI", sans-serif;
+    --body: "Segoe UI", sans-serif;
+    --mono: Consolas, "Cascadia Mono", monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; overflow: hidden; }
+  body { font-family: var(--body); color: var(--ink); }
+  #stage { position: relative; overflow: hidden; }
+
+  /* ---- shared pieces ---- */
+  .brand { display: flex; align-items: center; white-space: nowrap; gap: 14px; font: 600 22px var(--body); }
+  .brand img { width: 44px; height: 44px; border-radius: 10px; }
+  h1 { font: 700 68px/1.02 var(--display); font-stretch: 85%; letter-spacing: -0.5px; margin: 0; text-wrap: balance; }
+  .sub { font: 400 24px/1.4 var(--body); margin: 22px 0 0; max-width: 21em; }
+
+  .popup { border-radius: 14px; overflow: hidden; background: #fff; box-shadow: 0 30px 70px -20px rgba(6, 51, 29, .45), 0 0 0 1px rgba(6, 51, 29, .08); }
+  .popup iframe { display: block; border: 0; width: 340px; }
+
+  .sheet { background: #fff; border-radius: 10px; box-shadow: 0 30px 70px -20px rgba(6, 51, 29, .45), 0 0 0 1px rgba(6, 51, 29, .08); overflow: hidden; }
+  .sheet-bar { display: flex; align-items: center; gap: 10px; padding: 12px 18px; background: #eef2ef; font: 600 15px var(--body); color: #33463b; }
+  .sheet-bar::before { content: ""; width: 14px; height: 17px; border: 2px solid #7c9085; border-radius: 2px; }
+  .sheet pre { margin: 0; padding: 18px 20px 22px; font: 400 15.5px/1.75 var(--mono); color: #1c2b23; white-space: pre; }
+  .sheet .t { color: #8a9a91; }
+  .sheet .s { color: var(--green-deep); font-weight: 700; }
+
+  /* ---- screenshot: paper ---- */
+  .paper { background: var(--paper); }
+  .paper::before { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(#0000 0 39px, rgba(18, 140, 126, .11) 39px 40px); }
+  .paper::after { content: ""; position: absolute; top: 0; bottom: 0; left: 64px; width: 2px; background: rgba(214, 90, 90, .28); }
+  .paper .sub { color: var(--muted); }
+
+  /* ---- screenshot: deep ---- */
+  .deep { background: var(--ink); color: #fff; }
+  .deep .ghost { position: absolute; inset: -20px -40px; font: 400 21px/2 var(--mono); color: #fff; opacity: .055; white-space: pre; }
+  .deep .sub { color: #b9d6c4; }
+  .deep .popup, .deep .sheet { box-shadow: 0 40px 90px -20px rgba(0, 0, 0, .7); }
+
+  .split { position: absolute; inset: 0; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 56px; padding: 0 92px 0 112px; }
+  .split .copy { display: flex; flex-direction: column; gap: 44px; }
+
+  /* ---- screenshot: context (the popup where it really appears) ---- */
+  .context { background: #cfd8d2; }
+  .browser { position: absolute; inset: 0; display: flex; flex-direction: column; }
+  .tabs { height: 42px; background: #d5ddd8; display: flex; align-items: flex-end; padding-left: 14px; gap: 6px; }
+  .tab { height: 34px; width: 230px; border-radius: 10px 10px 0 0; background: #fff; display: flex; align-items: center; gap: 9px; padding: 0 14px; font: 400 13px var(--body); color: #33463b; }
+  .tab i { width: 14px; height: 14px; border-radius: 50%; background: var(--green); }
+  .toolbar { height: 46px; background: #fff; display: flex; align-items: center; gap: 12px; padding: 0 16px; border-bottom: 1px solid #dde4df; }
+  .url { flex: 1; height: 30px; border-radius: 15px; background: #eef2ef; display: flex; align-items: center; padding: 0 16px; font: 400 13px var(--body); color: #54695c; }
+  .ext { width: 30px; height: 30px; border-radius: 8px; background: var(--tint); display: grid; place-items: center; outline: 2px solid var(--green); }
+  .ext img { width: 22px; height: 22px; border-radius: 5px; }
+  .dot { width: 22px; height: 22px; border-radius: 50%; background: #dfe6e1; }
+  .app { flex: 1; display: grid; grid-template-columns: 330px 1fr; min-height: 0; }
+  .chats { background: #fff; border-right: 1px solid #dde4df; padding: 14px 0; }
+  .chat { display: flex; gap: 12px; align-items: center; padding: 11px 18px; }
+  .chat.on { background: #eef2ef; }
+  .ava { width: 44px; height: 44px; border-radius: 50%; flex: none; }
+  .chat b { display: block; font: 600 15px var(--body); }
+  .chat span { font: 400 13px var(--body); color: #71827a; }
+  .thread { background: #ece8e1; display: flex; flex-direction: column; min-width: 0; }
+  .thread header { background: #f4f6f4; padding: 13px 22px; display: flex; gap: 12px; align-items: center; font: 600 16px var(--body); border-bottom: 1px solid #dde4df; }
+  .msgs { flex: 1; padding: 20px 60px 104px; display: flex; flex-direction: column; gap: 8px; justify-content: flex-end; }
+  .msg { max-width: 430px; background: #fff; border-radius: 9px; padding: 8px 12px 9px; font: 400 14.5px/1.4 var(--body); box-shadow: 0 1px 0 rgba(0,0,0,.08); }
+  .msg b { display: block; font: 600 13px var(--body); color: var(--green-deep); }
+  .msg.me { align-self: flex-end; background: #d6f6cc; }
+  .context .popup { position: absolute; top: 96px; right: 20px; }
+  .context .sheet { position: absolute; top: 150px; right: 70px; width: 720px; }
+  .caption { position: absolute; left: 0; bottom: 0; right: 0; background: var(--ink); color: #fff; padding: 22px 34px 24px; font: 700 34px/1.1 var(--display); font-stretch: 85%; }
+
+  /* ---- promo tiles and marquees ---- */
+  .promo { position: absolute; inset: 0; display: flex; align-items: center; }
+  .promo h1 { font-size: var(--h); }
+  .promo .sub { font-size: var(--p); margin-top: calc(var(--p) * .6); }
+  .promo .brand img { width: var(--icon); height: var(--icon); border-radius: calc(var(--icon) * .22); }
+  .lines { font: 400 var(--mono-size) / 1.9 var(--mono); white-space: pre; }
+  .bubbles { display: flex; flex-direction: column; gap: calc(var(--mono-size) * .7); }
+  .bubbles span { display: block; height: calc(var(--mono-size) * 2.1); border-radius: calc(var(--mono-size) * .8); background: #fff; }
+  .bubbles span:nth-child(2) { align-self: flex-end; background: #c9f3bd; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<script type="module">
+const q = new URLSearchParams(location.search);
+const kind = q.get('kind') || 'screenshot';
+const scene = q.get('scene') || 'ready';
+const style = q.get('style') || 'paper';
+const stage = document.getElementById('stage');
+const SIZES = { screenshot: [1280, 800], tile: [440, 280], marquee: [1400, 560] };
+const [W, H] = SIZES[kind];
+stage.style.width = `${W}px`;
+stage.style.height = `${H}px`;
+
+const COPY = {
+  ready: ['Save a whole WhatsApp chat as a text file', 'Open a chat on WhatsApp Web, press Export, and get every message it holds.'],
+  range: ['Take everything, or only the dates you need', 'Set one date or two. Leave both blank for the full history.'],
+  running: ['It scrolls back through the history for you', 'Watch the count climb while older messages load. Stop any time and keep what was found.'],
+  list: ['Download, copy or delete each export', 'Exports stay in the list until you close the browser. Nothing leaves your computer.'],
+  file: ['One message per line, oldest first', 'Plain text with time and sender, ready to search, archive or paste anywhere.'],
+};
+
+const FILE_LINES = [
+  ['08:12, 11/14/2026', 'Maya', 'Trail report is in. Dry all the way to the ridge.'],
+  ['08:14, 11/14/2026', 'Jonas', 'Good. Same meeting point as last time?'],
+  ['08:15, 11/14/2026', 'Maya', 'Yes, the car park by the mill. 7:30 sharp.'],
+  ['08:21, 11/14/2026', 'Priya', 'I can take three people from the station.'],
+  ['08:22, 11/14/2026', 'Tomer', 'Count me in for the lift, thank you!'],
+  ['08:40, 11/14/2026', 'Lena', '[media]'],
+  ['08:41, 11/14/2026', 'Lena', 'That is the map with the new detour marked.'],
+  ['09:02, 11/14/2026', 'Jonas', 'Bringing the stove. Who has the coffee?'],
+  ['09:05, 11/14/2026', 'Priya', 'Me. And far too many biscuits.'],
+  ['09:17, 11/14/2026', 'Maya', 'Perfect. See you all Saturday.'],
+];
+const esc = (s) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
+const plainLines = FILE_LINES.map(([t, s, m]) => `[${t}] ${s}: ${m}`);
+const shortLines = ['[08:12] Maya: Trail is dry.', '[08:14] Jonas: Same meeting point?', '[08:15] Maya: Yes, 7:30 sharp.', '[08:21] Priya: I can take three.', '[08:22] Tomer: Count me in!', '[08:40] Lena: [media]', '[09:02] Jonas: Who has the coffee?', '[09:05] Priya: Me. And biscuits.'];
+
+function sheet(count = FILE_LINES.length) {
+  const body = FILE_LINES.slice(0, count)
+    .map(([t, s, m]) => `<span class="t">[${t}]</span> <span class="s">${s}:</span> ${esc(m)}`)
+    .join('\n');
+  return `<div class="sheet"><div class="sheet-bar">Hiking Club_2026-11-16.txt</div><pre>${body}</pre></div>`;
+}
+
+// The real popup, scaled up so it reads at store-thumbnail size.
+function popup(state, zoom) {
+  return `<div class="popup" style="zoom:${zoom}"><iframe src="popup-frame.html?state=${state}" scrolling="no"></iframe></div>`;
+}
+
+function subject(zoom) {
+  return scene === 'file' ? `<div style="zoom:${zoom * 0.62}">${sheet()}</div>` : popup(scene, zoom);
+}
+
+const brand = '<div class="brand"><img src="../icons/icon128.png" alt="" />WhatsApp Chat Export</div>';
+const ghost = () => `<div class="ghost">${esc(Array.from({ length: 24 }, (_, i) => plainLines[i % plainLines.length] + '   ' + plainLines[(i + 4) % plainLines.length]).join('\n'))}</div>`;
+
+function splitShot() {
+  const [title, sub] = COPY[scene];
+  stage.className = style;
+  stage.innerHTML = `${style === 'deep' ? ghost() : ''}
+    <div class="split">
+      <div class="copy">${brand}<div><h1>${title}</h1><p class="sub">${sub}</p></div></div>
+      ${subject(1.62)}
+    </div>`;
+}
+
+function contextShot() {
+  const people = [['Hiking Club', 'Maya: Perfect. See you all Saturday.', '#128c7e', true], ['Family', 'Dinner at ours on Friday?', '#d98a3d'], ['Flat 4B', 'The plumber comes at ten.', '#5b7fd6'], ['Book circle', 'Chapter nine was something.', '#a55bd6'], ['Priya', 'Thanks for the lift!', '#d65b7c'], ['Jonas', 'Photos are uploaded.', '#3da6a0']];
+  const msgs = FILE_LINES.slice(1).filter(([, , m]) => m !== '[media]');
+  stage.className = 'context';
+  stage.innerHTML = `<div class="browser">
+      <div class="tabs"><div class="tab"><i></i>Chats</div></div>
+      <div class="toolbar"><span class="dot"></span><span class="dot"></span><div class="url">web.whatsapp.com</div><div class="ext"><img src="../icons/icon128.png" alt="" /></div><span class="dot"></span></div>
+      <div class="app">
+        <div class="chats">${people.map(([n, last, c, on]) => `<div class="chat${on ? ' on' : ''}"><div class="ava" style="background:${c}"></div><div><b>${n}</b><span>${last}</span></div></div>`).join('')}</div>
+        <div class="thread"><header><div class="ava" style="background:#128c7e;width:38px;height:38px"></div>Hiking Club</header>
+          <div class="msgs">${msgs.map(([, s, m]) => `<div class="msg${s === 'Maya' ? ' me' : ''}">${s === 'Maya' ? '' : `<b>${s}</b>`}${esc(m)}</div>`).join('')}</div>
+        </div>
+      </div>
+    </div>
+    ${scene === 'file' ? sheet() : popup(scene, 1.18)}
+    <div class="caption">${COPY[scene][0]}</div>`;
+}
+
+function promo() {
+  const big = kind === 'marquee';
+  const vars = big
+    ? '--h:74px;--p:25px;--icon:60px;--mono-size:18px'
+    : '--h:35px;--p:14.5px;--icon:34px;--mono-size:8.6px';
+  const pad = big ? '0 96px' : '0 26px';
+  const title = big ? 'Save a whole WhatsApp chat as a text file' : 'WhatsApp chats, saved as text';
+  const sub = big ? 'One click on WhatsApp Web. Every message, one per line.' : 'Every message, one per line.';
+  const head = `<div><div class="brand" style="font-size:${big ? 22 : 13}px;gap:${big ? 14 : 9}px;margin-bottom:${big ? 34 : 16}px"><img src="../icons/icon128.png" alt="" />WhatsApp Chat Export</div><h1>${title}</h1><p class="sub">${sub}</p></div>`;
+  const lines = `<div class="lines">${esc(shortLines.slice(0, big ? 8 : 7).join('\n'))}</div>`;
+
+  if (style === 'lines') {
+    // Chat bubbles on the left become text lines on the right.
+    stage.className = 'paper';
+    stage.innerHTML = `<div class="promo" style="${vars};padding:${pad};gap:${big ? 48 : 16}px">
+        <div style="flex:none;width:${big ? 450 : 186}px">${head.replace(title, big ? 'From chat bubbles to plain text' : 'Chat bubbles to plain text').replace(sub, big ? 'Export any chat to a .txt file.' : 'Export to a .txt file.')}</div>
+        <div class="bubbles" style="flex:none;width:${big ? 170 : 0}px;${big ? '' : 'display:none'}"><span style="width:80%"></span><span style="width:65%"></span><span style="width:90%"></span><span style="width:55%"></span></div>
+        <div style="flex:1;min-width:0;overflow:hidden;color:#1c2b23;background:#fff;border-radius:${big ? 12 : 8}px;padding:${big ? '22px 26px' : '12px 14px'};box-shadow:0 20px 50px -18px rgba(6,51,29,.4)">${lines}</div>
+      </div>`;
+    return;
+  }
+  stage.className = style;
+  stage.innerHTML = `${style === 'deep' ? ghost() : ''}
+    <div class="promo" style="${vars};padding:${pad};gap:${big ? 80 : 20}px;justify-content:space-between">
+      <div style="max-width:${big ? 640 : 250}px">${head}</div>
+      ${big ? popup('running', 1.28) : `<div style="flex:none;margin-right:-150px">${popup('running', 0.78)}</div>`}
+    </div>`;
+}
+
+if (kind !== 'screenshot') promo();
+else if (style === 'context') contextShot();
+else splitShot();
+
+// Size each embedded popup to its content.
+for (const frame of document.querySelectorAll('iframe')) {
+  frame.addEventListener('load', () => {
+    const fit = () => { frame.style.height = `${frame.contentDocument.body.scrollHeight}px`; };
+    fit();
+    setTimeout(fit, 150);
+  });
+}
+</script>
+</body>
+</html>

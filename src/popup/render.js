@@ -12,7 +12,7 @@ const EMPTY_ICON = '<svg viewBox="0 0 48 48" width="40" height="40" fill="none" 
 const numberFormat = new Intl.NumberFormat('en-US');
 
 function exportButton({ chatName, disabled }) {
-  const label = chatName ? `Export <span class="chat-name">${escapeHtml(chatName)}</span>` : 'Export this group';
+  const label = chatName ? `Export <span class="chat-name">${escapeHtml(chatName)}</span>` : 'Export this chat';
   return `<button class="primary" id="export-btn"${disabled ? ' disabled' : ''}>${label}</button>`;
 }
 

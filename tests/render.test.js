@@ -13,7 +13,7 @@ test('renderStatus shows a disabled button with a hint when disabledReason is se
 
 test('renderStatus shows an enabled button when idle and not disabled', () => {
   const html = renderStatus(idle);
-  assert.match(html, /<button class="primary" id="export-btn">Export this group<\/button>/);
+  assert.match(html, /<button class="primary" id="export-btn">Export this chat<\/button>/);
 });
 
 test('renderStatus names the open chat on the button, escaped', () => {

@@ -80,7 +80,7 @@ async function gatherLines(pane, { newest, oldest }, tabId, isCancelled) {
         await saveStatus(runningStatus(tabId, count, note));
       } catch (err) {
         // A stalled live counter isn't worth aborting a long scroll over.
-        console.warn('WhatsApp Group Export: failed to persist progress, continuing', err);
+        console.warn('WhatsApp Chat Export: failed to persist progress, continuing', err);
       }
     }
 
@@ -97,7 +97,7 @@ async function storeExport(entry) {
     // Most likely the ~10MB session-storage quota: a long chat's text
     // doesn't fit in the popup's list. Never throw the scraped history
     // away over that — hand the file straight to the browser instead.
-    console.warn('WhatsApp Group Export: could not store the export, downloading it directly', err);
+    console.warn('WhatsApp Chat Export: could not store the export, downloading it directly', err);
     const filename = buildFilename(entry);
     downloadTextFile(filename, entry.text);
     return `Too large to keep in this list, so it was saved to your Downloads folder as "${filename}".`;
@@ -131,7 +131,7 @@ export async function exportChat({ from, to }, tabId, isCancelled) {
     // Whatever broke — a full storage quota, an unexpected DOM change,
     // anything — the popup must never see "Exporting…" hang forever.
     await saveStatus(errorStatus(`Export failed: ${err.message || err}`)).catch((persistErr) => {
-      console.error('WhatsApp Group Export: failed to persist the failure state itself', persistErr);
+      console.error('WhatsApp Chat Export: failed to persist the failure state itself', persistErr);
     });
   }
 }

@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Store upload kit</title>
+<style>
+  :root { --ink: #06331d; --muted: #54695c; --line: #d9e2dc; --paper: #f3f8f4; --green: #128c7e; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.5 "Segoe UI", system-ui, sans-serif; }
+  main { max-width: 1500px; margin: 0 auto; padding: 40px 28px 80px; }
+  h1 { font: 700 44px/1.05 Bahnschrift, "Segoe UI", sans-serif; font-stretch: 85%; margin: 0 0 10px; }
+  h2 { font: 700 28px/1.1 Bahnschrift, "Segoe UI", sans-serif; font-stretch: 85%; margin: 56px 0 4px; }
+  h3 { font: 600 17px/1.3 "Segoe UI", sans-serif; margin: 28px 0 12px; }
+  p { margin: 0; color: var(--muted); max-width: 70ch; }
+  code { font: 13px Consolas, monospace; }
+  .grid { display: grid; gap: 18px; }
+  .shots { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+  .tiles { grid-template-columns: repeat(auto-fill, minmax(300px, 440px)); }
+  .marquees { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+  figure { margin: 0; }
+  figure a { display: block; border-radius: 8px; overflow: hidden; box-shadow: 0 0 0 1px var(--line), 0 12px 28px -18px rgba(6, 51, 29, .5); }
+  figure a:focus-visible { outline: 3px solid var(--green); outline-offset: 3px; }
+  figure img { display: block; width: 100%; height: auto; }
+  figcaption { margin-top: 7px; color: var(--muted); font-size: 13px; }
+  .icons { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 28px; margin-top: 18px; }
+  .icons figure a { display: inline-block; padding: 20px; background: #fff; }
+  .icons figure img { width: auto; }
+  .icons .on-dark a { background: #202124; }
+  .files { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); margin-top: 18px; }
+  .file { display: block; padding: 16px 18px; border-radius: 10px; background: #fff; box-shadow: 0 0 0 1px var(--line); color: inherit; text-decoration: none; }
+  .file:hover { box-shadow: 0 0 0 2px var(--green); }
+  .file b { display: block; font: 600 15px Consolas, monospace; word-break: break-all; }
+  .file span { color: var(--muted); font-size: 14px; }
+  .field { margin-top: 18px; background: #fff; border-radius: 10px; box-shadow: 0 0 0 1px var(--line); overflow: hidden; }
+  .field-head { display: flex; align-items: baseline; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  .field-head b { font-weight: 600; }
+  .field-head span { color: var(--muted); font-size: 13px; flex: 1; }
+  .field-head button { font: 600 13px "Segoe UI", sans-serif; color: #fff; background: var(--green); border: 0; border-radius: 6px; padding: 6px 14px; cursor: pointer; }
+  .field-head button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+  .field pre { margin: 0; padding: 14px 16px; font: 14px/1.55 "Segoe UI", sans-serif; white-space: pre-wrap; color: #1c2b23; }
+  ol { margin: 14px 0 0; padding-left: 22px; max-width: 75ch; }
+  ol li { margin: 4px 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Store upload kit</h1>
+  <p>Everything for the Chrome Web Store listing of WhatsApp Chat Export 1.0.0: the package to upload, the text for each form field, and every image variant.</p>
+
+  <h2>Files to upload</h2>
+  <p>Built by <code>python store/package.py</code> into <code>store/upload/</code>.</p>
+  <div class="files">
+    <a class="file" href="upload/whatsapp-chat-export-1.0.0.zip"><b>whatsapp-chat-export-1.0.0.zip</b><span>The extension. Upload this under Package. 19 files, 41 KB: the manifest, icons and <code>src/</code> only.</span></a>
+    <a class="file" href="upload/store-images.zip"><b>store-images.zip</b><span>All 21 images below in one archive, in case you want to pass them on. The store itself takes the PNG files one by one.</span></a>
+    <a class="file" href="../icons/icon128.png"><b>icons/icon128.png</b><span>Store icon, 128 × 128. Already inside the package; upload it again under Store listing.</span></a>
+  </div>
+  <ol>
+    <li>Open the Chrome Web Store Developer Dashboard and choose New item.</li>
+    <li>Upload <code>whatsapp-chat-export-1.0.0.zip</code>.</li>
+    <li>Fill in Store listing and Privacy with the text below, and add the images you picked.</li>
+    <li>Submit for review.</li>
+  </ol>
+
+  <h2>Store listing text</h2>
+  <p>The name and summary come from <code>manifest.json</code> automatically. Copy the rest into the matching fields.</p>
+  <div id="listing"></div>
+
+  <h2>Privacy tab text</h2>
+  <p>The dashboard asks for a reason for each permission. Answer "No" to remote code, and tick no data-collection boxes: nothing is sent anywhere.</p>
+  <div id="privacy"></div>
+
+  <h2>Images</h2>
+  <p>Click an image to open it at full size. The files are in <code>store/images/</code>, all 24-bit PNG with no transparency.</p>
+
+  <h3 style="font-size:22px;margin-top:36px">Store icon, 128 × 128</h3>
+  <p>Upload <code>icons/icon128.png</code> under Store listing. The smaller sizes are used by Chrome itself (toolbar and extensions page) and are already in the package.</p>
+  <div class="icons">
+    <figure><a href="../icons/icon128.png"><img src="../icons/icon128.png" width="128" height="128" alt="Store icon at 128 pixels" /></a><figcaption>Store icon<br><code>icon128.png</code></figcaption></figure>
+    <figure><a href="../icons/icon48.png"><img src="../icons/icon48.png" width="48" height="48" alt="Icon at 48 pixels" /></a><figcaption>Extensions page<br><code>icon48.png</code></figcaption></figure>
+    <figure><a href="../icons/icon16.png"><img src="../icons/icon16.png" width="16" height="16" alt="Icon at 16 pixels" /></a><figcaption>Toolbar<br><code>icon16.png</code></figcaption></figure>
+    <figure class="on-dark"><a href="../icons/icon128.png"><img src="../icons/icon128.png" width="128" height="128" alt="Store icon on a dark background" /></a><figcaption>On a dark background</figcaption></figure>
+  </div>
+
+  <h3 style="font-size:22px;margin-top:44px">Screenshots, 1280 × 800</h3>
+  <p>The store takes up to five. Three looks, five scenes each; mixing looks in one listing is fine, but one look reads cleaner.</p>
+  <div id="shots"></div>
+
+  <h3 style="font-size:22px;margin-top:44px">Small promo tile, 440 × 280</h3>
+  <p>Shown in search results and category pages. Pick one.</p>
+  <div class="grid tiles" id="tiles" style="margin-top:18px"></div>
+
+  <h3 style="font-size:22px;margin-top:44px">Marquee promo tile, 1400 × 560</h3>
+  <p>Optional; only used if the store features the extension. Pick one.</p>
+  <div class="grid marquees" id="marquees" style="margin-top:18px"></div>
+</main>
+<script>
+  const LISTING = [
+    ['Name', 'From the manifest, 75 characters at most', 'WhatsApp Chat Export - Download Easy, Private, No Limits'],
+    ['Summary', 'From the manifest, 132 characters at most', 'Save any WhatsApp Web chat as a text file. Free, no message limit, and nothing leaves your computer.'],
+    ['Description', 'Store listing', `Save the message history of any WhatsApp Web chat as a plain text file.
+
+Open a chat on web.whatsapp.com, click the extension, and press Export. The extension scrolls back through the chat for you, collects every message it loads, and gives you one .txt file with one message per line, oldest first:
+
+[08:12, 11/14/2026] Maya: Trail report is in. Dry all the way to the ridge.
+[08:14, 11/14/2026] Jonas: Good. Same meeting point as last time?
+
+What it does
+• Exports group chats and one-to-one chats.
+• Keeps the time and sender of every message.
+• Exports the whole history, or only a date range you choose. Free, with no message limit.
+• Shows a live count while it works. Stop at any time and keep what was found.
+• Asks your phone for older messages when WhatsApp Web has run out of local history.
+• Lets you download, copy or delete each export from the popup.
+
+Good to know
+• Text only. Photos, videos and voice notes appear as [media].
+• Keep the WhatsApp tab visible while an export runs; WhatsApp only loads older messages when the tab is on screen.
+• A long chat takes a while, because WhatsApp loads history in small batches.
+• Exports stay in the popup until you close the browser.
+
+Private by design
+Everything happens inside your browser. The extension reads only the chat you have open, and nothing is sent to any server. There is no account, no tracking and no analytics.
+
+This extension is an independent project. It is not affiliated with, endorsed by or sponsored by WhatsApp or Meta.`],
+    ['Category', 'Store listing', 'Communication'],
+    ['Language', 'Store listing', 'English'],
+  ];
+  const PRIVACY = [
+    ['Single purpose', 'Privacy tab', 'Exports the message history of the WhatsApp Web chat the user has open to a plain text file on their own computer.'],
+    ['storage justification', 'Privacy tab', 'Keeps the progress of a running export and the finished exports in chrome.storage.session so the popup can show them. This storage is local and is cleared when the browser closes.'],
+    ['downloads justification', 'Privacy tab', 'Saves a finished export as a .txt file to the user\'s Downloads folder when they click the Download button.'],
+    ['activeTab justification', 'Privacy tab', 'Lets the popup see whether the current tab is web.whatsapp.com, so the Export button is enabled only where it can work.'],
+    ['Host permission justification (web.whatsapp.com)', 'Privacy tab', 'The content script runs only on https://web.whatsapp.com/ and reads the messages of the chat the user has open there, in order to export them. It does not run on any other site.'],
+    ['Remote code', 'Privacy tab', 'No, I am not using remote code. All code is included in the package.'],
+    ['Data usage', 'Privacy tab', 'No user data is collected or transmitted. Leave every data-type box unticked and tick the three certification boxes.'],
+    ['Privacy policy URL', 'Privacy tab', 'https://github.com/hanegbi/export-wa-group/blob/master/PRIVACY.md'],
+    ['Privacy policy text', 'Already published at the URL above, from PRIVACY.md', `Privacy policy for WhatsApp Chat Export
+
+WhatsApp Chat Export does not collect, transmit, sell or share any data.
+
+The extension reads the messages of the WhatsApp Web chat you have open, only when you press Export, and only to build the text file you asked for. That text is kept in your browser's session storage so you can download or copy it, and it is erased when you close the browser. Files you download are saved to your own computer.
+
+The extension makes no network requests, uses no analytics and has no server.
+
+Questions: open an issue at https://github.com/hanegbi/export-wa-group/issues`],
+  ];
+  const esc = (s) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
+  function fields(id, list) {
+    const root = document.getElementById(id);
+    root.innerHTML = list
+      .map(([name, where, text], i) => `<div class="field"><div class="field-head"><b>${name}</b><span>${where}</span><button type="button" data-i="${i}">Copy</button></div><pre>${esc(text)}</pre></div>`)
+      .join('');
+    root.addEventListener('click', async (event) => {
+      const btn = event.target.closest('button[data-i]');
+      if (!btn) return;
+      try {
+        await navigator.clipboard.writeText(list[btn.dataset.i][2]);
+        btn.textContent = 'Copied';
+      } catch {
+        btn.textContent = 'Select and copy by hand';
+      }
+      setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+    });
+  }
+  fields('listing', LISTING);
+  fields('privacy', PRIVACY);
+
+  const figure = (name, label) =>
+    `<figure><a href="images/${name}.png"><img src="images/${name}.png" alt="${label}" loading="lazy" /></a><figcaption>${label}<br><code>${name}.png</code></figcaption></figure>`;
+
+  const looks = { paper: 'Paper: light, ruled like a text file', deep: 'Deep: dark green with export lines behind', context: 'In context: the popup where it appears in the browser' };
+  const scenes = { ready: 'Ready to export', range: 'Date range', running: 'Exporting', list: 'Finished exports', file: 'The text file' };
+  document.getElementById('shots').innerHTML = Object.entries(looks)
+    .map(([look, title]) => `<h3>${title}</h3><div class="grid shots">${Object.entries(scenes).map(([scene, label]) => figure(`screenshot-${look}-${scene}`, label)).join('')}</div>`)
+    .join('');
+
+  const promos = { paper: 'Paper', deep: 'Deep', lines: 'Bubbles to lines' };
+  document.getElementById('tiles').innerHTML = Object.entries(promos).map(([k, label]) => figure(`tile-${k}`, label)).join('');
+  document.getElementById('marquees').innerHTML = Object.entries(promos).map(([k, label]) => figure(`marquee-${k}`, label)).join('');
+</script>
+</body>
+</html>

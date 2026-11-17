@@ -1,4 +1,4 @@
-# WhatsApp Group Export
+# WhatsApp Chat Export
 
 Chrome extension that exports the message history of a WhatsApp Web chat to a plain text file.
 

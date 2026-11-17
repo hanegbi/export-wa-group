@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<!-- The real popup markup and stylesheet, filled with sample data for store images. -->
+<html>
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="../src/popup/popup.css" />
+  <style>html { overflow: hidden; }</style>
+</head>
+<body>
+  <header class="titlebar">
+    <img class="app-icon" src="../icons/icon48.png" width="22" height="22" alt="" />
+    <h1>WhatsApp Chat Export</h1>
+  </header>
+  <div id="status-area"></div>
+  <div class="range-row">
+    <label class="range-field">
+      <span class="range-label">From <span class="range-hint">(blank = now)</span></span>
+      <input type="datetime-local" id="range-from" />
+    </label>
+    <label class="range-field">
+      <span class="range-label">To <span class="range-hint">(blank = full history)</span></span>
+      <input type="datetime-local" id="range-to" />
+    </label>
+  </div>
+  <h2>Exports</h2>
+  <div id="export-list"></div>
+  <script type="module">
+    import { renderStatus, renderExportList } from '../src/popup/render.js';
+    import { idleStatus, runningStatus } from '../src/shared/exportStore.js';
+
+    const entry = (id, groupName, lineCount, date, outcome = null) => ({ id, groupName, lineCount, date, outcome });
+    const hiking = entry('1', 'Hiking Club', 4812, '2026-11-16T09:42:00');
+    const family = entry('2', 'Family', 9406, '2026-11-16T09:15:00');
+    const flat = entry('3', 'Flat 4B', 931, '2026-11-15T21:03:00', 'cancelled');
+    const book = entry('4', 'Book circle', 2277, '2026-11-15T18:30:00');
+
+    const states = {
+      ready: { status: idleStatus(), exports: [family, book] },
+      range: { status: idleStatus(), exports: [family], from: '2026-11-01T00:00', to: '2026-09-01T00:00' },
+      running: { status: runningStatus(1, 4812), exports: [family] },
+      list: { status: idleStatus(), exports: [hiking, family, flat, book] },
+    };
+    const state = states[new URLSearchParams(location.search).get('state')] || states.ready;
+
+    document.getElementById('status-area').innerHTML = renderStatus({
+      ...state.status,
+      disabledReason: null,
+      chatName: 'Hiking Club',
+    });
+    document.getElementById('export-list').innerHTML = renderExportList(state.exports);
+    document.getElementById('range-from').value = state.from || '';
+    document.getElementById('range-to').value = state.to || '';
+  </script>
+</body>
+</html>

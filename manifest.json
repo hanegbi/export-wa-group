@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "WhatsApp Group Export",
+  "name": "WhatsApp Chat Export - Download Easy, Private, No Limits",
   "version": "1.0.0",
-  "description": "Export the full message history of a WhatsApp Web chat to a text file.",
+  "description": "Save any WhatsApp Web chat as a text file. Free, no message limit, and nothing leaves your computer.",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
