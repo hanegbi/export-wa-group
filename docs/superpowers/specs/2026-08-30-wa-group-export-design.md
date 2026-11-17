@@ -19,17 +19,24 @@ can download from the extension's popup.
 
 ## Architecture
 No background service worker. Three pieces:
-- `content.js` — content script matched on `https://web.whatsapp.com/*`.
-  Idle until messaged; performs the scroll-and-scrape; writes progress and
-  results to `chrome.storage.session`.
-- `popup.html` / `popup.js` / `popup.css` — renders state from
-  `chrome.storage.session`, listens to `chrome.storage.onChanged` for live
-  updates, sends the start message, handles downloads.
-- `chrome.storage.session` — source of truth for `waExports` (array of
-  `{id, groupName, date, text}`) and `waExportStatus`
-  (`idle | running | done | error`, plus a live message count). Session
-  storage is wiped on browser restart by design, which satisfies the
-  "reset every restart" requirement with no extra code.
+- `src/content/` — content script matched on `https://web.whatsapp.com/*`.
+  `content.js` is a classic-script stub that dynamically imports `main.js`,
+  so everything else is ordinary ES modules (all of `src/content/*.js` and
+  `src/shared/*.js` are web-accessible for that reason). Idle until
+  messaged; performs the scroll-and-scrape; writes progress and results to
+  `chrome.storage.session`. Only `chatPage.js` knows WhatsApp's markup.
+- `src/popup/` — renders state from `chrome.storage.session`, listens to
+  `chrome.storage.onChanged` for live updates, sends the start message,
+  handles downloads.
+- `src/shared/exportStore.js` — the only code that touches
+  `chrome.storage.session`. Two keys, because they have different writers:
+  `exports` (array of `{id, groupName, outcome, date, text, lineCount}`;
+  `outcome` is `null`, `cancelled` or `partial`) and `exportStatus`
+  (`idle | running | error`, plus the id of the exporting tab, a live message count, a wait note, an
+  error and a notice). Session storage is wiped on browser restart by
+  design, which satisfies the "reset every restart" requirement with no
+  extra code.
+- `src/shared/messages.js` — both ends of the popup ↔ tab messages.
 
 Permissions: `storage`, `downloads`, `activeTab`. Content script `matches`
 covers `web.whatsapp.com` for injection; `activeTab` is what lets the
@@ -58,8 +65,8 @@ scrolling first and reading after:
       fires no scroll event and a stalled load would never be retried.
       Then poll until the pane changes (new rows or a taller scrollHeight)
       or a short step timeout passes.
-   e. Stop only when the chat has been quiet — no never-seen rows, no new
-      record scrollHeight — for a full minute (three while the
+   e. Stop only when the chat has been quiet — no never-seen older rows, no
+      new record scrollHeight (messages arriving at the bottom do not count) — for a full minute (three while the
       "get older messages from your phone" prompt is showing). A single
       batch from WhatsApp can take tens of seconds, so a few quiet passes
       prove nothing. Time while the tab is hidden never counts as quiet:

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getDateFieldOrder, parseWhatsAppTimestamp, isWithinRange } from '../src/content/timestamp.js';
+import { getDateFieldOrder, parseWhatsAppTimestamp, isWithinRange, orderRange } from '../src/content/timestamp.js';
 
 test('getDateFieldOrder detects month-day-year order for en-US', () => {
   assert.deepEqual(getDateFieldOrder('en-US'), ['month', 'day', 'year']);
@@ -59,4 +59,18 @@ test('isWithinRange excludes dates older than the to bound', () => {
 
 test('isWithinRange includes everything when neither bound is set', () => {
   assert.equal(isWithinRange(new Date('2026-07-01'), null, null), true);
+});
+
+const march = new Date('2026-03-01T00:00');
+const june = new Date('2026-06-01T00:00');
+
+test('orderRange accepts the two dates in either order', () => {
+  assert.deepEqual(orderRange('2026-06-01T00:00', '2026-03-01T00:00'), { newest: june, oldest: march });
+  assert.deepEqual(orderRange('2026-03-01T00:00', '2026-06-01T00:00'), { newest: june, oldest: march });
+});
+
+test('orderRange treats a lone From as the newest bound and a lone To as the oldest', () => {
+  assert.deepEqual(orderRange('2026-06-01T00:00', null), { newest: june, oldest: null });
+  assert.deepEqual(orderRange(null, '2026-03-01T00:00'), { newest: null, oldest: march });
+  assert.deepEqual(orderRange(null, null), { newest: null, oldest: null });
 });

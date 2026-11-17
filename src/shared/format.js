@@ -6,12 +6,11 @@ export function sanitizeFilename(name) {
   return /^_*$/.test(cleaned) ? 'chat' : cleaned;
 }
 
-export function formatDateISO(date) {
-  return date.toISOString().slice(0, 10);
-}
-
-export function buildFilename(groupName, date) {
-  return `${sanitizeFilename(groupName)}_${formatDateISO(date)}.txt`;
+// Takes an export entry; `date` is an ISO string, `outcome` is null unless
+// the export stopped early.
+export function buildFilename({ groupName, outcome, date }) {
+  const name = outcome ? `${groupName} (${outcome})` : groupName;
+  return `${sanitizeFilename(name)}_${date.slice(0, 10)}.txt`;
 }
 
 // Exports only live until the browser restarts, so the year is noise.

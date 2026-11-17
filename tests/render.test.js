@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { renderStatus, renderExportList } from '../src/popup/render.js';
+import { idleStatus } from '../src/shared/exportStore.js';
 
-const idle = { status: 'idle', count: 0, note: null, error: null, notice: null, disabledReason: null, chatName: null };
+const idle = { ...idleStatus(), disabledReason: null, chatName: null };
 
 test('renderStatus shows a disabled button with a hint when disabledReason is set', () => {
   const html = renderStatus({ ...idle, disabledReason: 'Open a chat on web.whatsapp.com first.' });
@@ -44,7 +45,7 @@ test('renderStatus shows the error message in an error callout', () => {
 });
 
 test('renderStatus shows a notice in a neutral callout with the export button enabled', () => {
-  const html = renderStatus({ ...idle, status: 'done', notice: 'Saved to Downloads as "Work.txt".' });
+  const html = renderStatus({ ...idle, notice: 'Saved to Downloads as "Work.txt".' });
   assert.match(html, /<button class="primary" id="export-btn">/);
   assert.match(html, /class="callout notice"/);
   assert.match(html, /Saved to Downloads as &quot;Work\.txt&quot;\./);
@@ -67,45 +68,42 @@ test('renderExportList shows an empty state with no exports', () => {
   assert.match(html, /No exports yet/);
 });
 
+const work = { id: '1', groupName: 'Work', outcome: null, date: '2026-08-29T09:05:00Z', lineCount: 4812 };
+
 test('renderExportList renders one card per export, newest first order preserved, with escaped names', () => {
-  const html = renderExportList([
-    { id: '2', groupName: '<Family>', date: '2026-08-30T14:15:00Z' },
-    { id: '1', groupName: 'Work', date: '2026-08-29T09:05:00Z' },
-  ]);
+  const html = renderExportList([{ ...work, id: '2', groupName: '<Family>', date: '2026-08-30T14:15:00Z' }, work]);
   assert.match(html, /&lt;Family&gt;/);
   assert.match(html, /\d{1,2}:\d{2}\s?[AP]M/); // shows a time, not just a date
-  assert.match(html, /data-export-id="2"/);
-  assert.match(html, /data-export-id="1"/);
   assert.ok(html.indexOf('data-export-id="2"') < html.indexOf('data-export-id="1"'));
 });
 
-test('renderExportList wraps name+date in a shrinkable container and puts the full name in a title', () => {
+test('renderExportList puts the full name in a title, since long names are truncated', () => {
   const longName = 'A'.repeat(200);
-  const html = renderExportList([{ id: '1', groupName: longName, date: '2026-08-29T09:05:00Z' }]);
-  assert.match(html, /class="export-card-info"/);
-  assert.match(html, new RegExp(`class="name" title="${longName}"`));
+  const html = renderExportList([{ ...work, groupName: longName }]);
+  assert.match(html, new RegExp(`title="${longName}"`));
 });
 
-test('renderExportList shows the message count when the export recorded one', () => {
-  const html = renderExportList([{ id: '1', groupName: 'Work', date: '2026-08-29T09:05:00Z', lineCount: 4812 }]);
-  assert.match(html, /4,812 messages/);
-  const legacy = renderExportList([{ id: '1', groupName: 'Work', date: '2026-08-29T09:05:00Z' }]);
-  assert.doesNotMatch(legacy, /messages/);
+test('renderExportList shows the message count', () => {
+  assert.match(renderExportList([work]), /4,812 messages/);
 });
 
-test('renderExportList turns a cancelled/partial suffix into a tag and keeps the clean name', () => {
-  const html = renderExportList([{ id: '1', groupName: 'Work (cancelled)', date: '2026-08-29T09:05:00Z' }]);
+test('renderExportList tags an export that stopped early and keeps the name clean', () => {
+  const html = renderExportList([{ ...work, outcome: 'cancelled' }]);
   assert.match(html, /class="name" title="Work">Work</);
   assert.match(html, /class="tag">cancelled</);
-  assert.match(renderExportList([{ id: '1', groupName: 'Work (partial)', date: '2026-08-29T09:05:00Z' }]), /class="tag">partial</);
+  assert.doesNotMatch(renderExportList([work]), /class="tag"/);
 });
 
-test('renderExportList includes download, copy, and delete icon buttons for each export', () => {
-  const html = renderExportList([{ id: '1', groupName: 'Work', date: '2026-08-29T09:05:00Z' }]);
-  assert.match(html, /class="icon-btn download-btn"/);
-  assert.match(html, /title="Download"/);
-  assert.match(html, /class="icon-btn copy-btn"/);
-  assert.match(html, /title="Copy to clipboard"/);
-  assert.match(html, /class="icon-btn delete-btn"/);
-  assert.match(html, /title="Delete"/);
+test('renderExportList gives each export download, copy, and delete buttons carrying its id', () => {
+  const html = renderExportList([work]);
+  for (const kind of ['download-btn', 'copy-btn', 'delete-btn']) {
+    assert.match(html, new RegExp(`<button data-export-id="1" class="icon-btn ${kind}"`));
+  }
+});
+
+test('renderStatus shows a running export even when this tab has nothing to export', () => {
+  // The export may be running in a different tab from the one the popup was opened on.
+  const html = renderStatus({ ...idle, status: 'running', count: 5, disabledReason: 'Open a chat on web.whatsapp.com first.' });
+  assert.match(html, /id="cancel-btn"/);
+  assert.match(html, /class="count">5</);
 });

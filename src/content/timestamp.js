@@ -37,9 +37,20 @@ export function parseWhatsAppTimestamp(raw, fieldOrder) {
   return new Date(year, values.month - 1, values.day, hours, minutes);
 }
 
-export function isWithinRange(date, fromDate, toDate) {
+// The popup's From and To are datetime-local strings or null. The export
+// reads backwards from now, so a lone From is the newest moment to include
+// (blank = now) and a lone To the oldest (blank = full history). When both
+// are given they are accepted in either order.
+export function orderRange(from, to) {
+  const fromDate = from ? new Date(from) : null;
+  const toDate = to ? new Date(to) : null;
+  if (fromDate && toDate && fromDate < toDate) return { newest: toDate, oldest: fromDate };
+  return { newest: fromDate, oldest: toDate };
+}
+
+export function isWithinRange(date, newest, oldest) {
   if (!date) return true;
-  if (fromDate && date > fromDate) return false;
-  if (toDate && date < toDate) return false;
+  if (newest && date > newest) return false;
+  if (oldest && date < oldest) return false;
   return true;
 }

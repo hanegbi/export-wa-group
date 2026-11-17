@@ -2,7 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   sanitizeFilename,
-  formatDateISO,
   buildFilename,
   formatDateTimeLabel,
   escapeHtml,
@@ -20,13 +19,14 @@ test('sanitizeFilename falls back to "chat" when nothing is left', () => {
   assert.equal(sanitizeFilename('???'), 'chat');
 });
 
-test('formatDateISO formats a Date as YYYY-MM-DD', () => {
-  assert.equal(formatDateISO(new Date('2026-08-30T12:00:00Z')), '2026-08-30');
+test('buildFilename combines sanitized name, date, and extension', () => {
+  const entry = { groupName: 'Family <3>', outcome: null, date: '2026-08-30T12:00:00.000Z' };
+  assert.equal(buildFilename(entry), 'Family _3__2026-08-30.txt');
 });
 
-test('buildFilename combines sanitized name, date, and extension', () => {
-  const date = new Date('2026-08-30T12:00:00Z');
-  assert.equal(buildFilename('Family <3>', date), 'Family _3__2026-08-30.txt');
+test('buildFilename marks an export that stopped early', () => {
+  const entry = { groupName: 'Work', outcome: 'cancelled', date: '2026-08-30T12:00:00.000Z' };
+  assert.equal(buildFilename(entry), 'Work (cancelled)_2026-08-30.txt');
 });
 
 test('formatDateTimeLabel renders a short date and time, no year', () => {

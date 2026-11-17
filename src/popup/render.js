@@ -9,8 +9,6 @@ const ALERT_ICON = `<svg ${ICON_ATTRS} class="callout-icon"><circle cx="12" cy="
 const CHECK_ICON = `<svg ${ICON_ATTRS} class="callout-icon"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg>`;
 const EMPTY_ICON = '<svg viewBox="0 0 48 48" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M24 7c-9.4 0-17 6.5-17 14.5 0 3.6 1.5 6.9 4.1 9.4L9 40l9.6-3.3c1.7.5 3.5.8 5.4.8 9.4 0 17-6.5 17-14.5S33.4 7 24 7z"/><path d="M16 20h16"/><path d="M16 26h10"/></svg>';
 
-const OUTCOME_SUFFIX_RE = /\s\((cancelled|partial)\)$/;
-
 const numberFormat = new Intl.NumberFormat('en-US');
 
 function exportButton({ chatName, disabled }) {
@@ -19,12 +17,6 @@ function exportButton({ chatName, disabled }) {
 }
 
 export function renderStatus({ status, count, note, error, notice, disabledReason, chatName }) {
-  if (disabledReason) {
-    return `
-      ${exportButton({ chatName: null, disabled: true })}
-      <div class="hint">${escapeHtml(disabledReason)}</div>
-    `;
-  }
   if (status === 'running') {
     return `
       <div class="running">
@@ -35,6 +27,12 @@ export function renderStatus({ status, count, note, error, notice, disabledReaso
         <div class="progress-bar"><span></span></div>
         ${note ? `<div class="wait-note">${escapeHtml(note)}</div>` : ''}
       </div>
+    `;
+  }
+  if (disabledReason) {
+    return `
+      ${exportButton({ chatName: null, disabled: true })}
+      <div class="hint">${escapeHtml(disabledReason)}</div>
     `;
   }
   if (status === 'error') {
@@ -52,12 +50,6 @@ export function renderStatus({ status, count, note, error, notice, disabledReaso
   return exportButton({ chatName, disabled: false });
 }
 
-function splitOutcome(groupName) {
-  const match = OUTCOME_SUFFIX_RE.exec(groupName);
-  if (!match) return { name: groupName, outcome: null };
-  return { name: groupName.slice(0, match.index), outcome: match[1] };
-}
-
 export function renderExportList(exports) {
   if (exports.length === 0) {
     return `
@@ -69,16 +61,15 @@ export function renderExportList(exports) {
   }
   return exports
     .map((item) => {
-      const { name, outcome } = splitOutcome(item.groupName);
-      const count = typeof item.lineCount === 'number' ? `<span>${numberFormat.format(item.lineCount)} messages</span>` : '';
+      const name = escapeHtml(item.groupName);
       return `
       <div class="export-card">
         <div class="export-card-info">
           <div class="name-row">
-            <div class="name" title="${escapeHtml(name)}">${escapeHtml(name)}</div>
-            ${outcome ? `<span class="tag">${outcome}</span>` : ''}
+            <div class="name" title="${name}">${name}</div>
+            ${item.outcome ? `<span class="tag">${escapeHtml(item.outcome)}</span>` : ''}
           </div>
-          <div class="meta">${count}<span>${formatDateTimeLabel(item.date)}</span></div>
+          <div class="meta"><span>${numberFormat.format(item.lineCount)} messages</span><span>${formatDateTimeLabel(item.date)}</span></div>
         </div>
         <div class="card-actions">
           <button data-export-id="${escapeHtml(item.id)}" class="icon-btn download-btn" title="Download">${DOWNLOAD_ICON}</button>

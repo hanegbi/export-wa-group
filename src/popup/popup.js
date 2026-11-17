@@ -1,6 +1,16 @@
 import { renderStatus, renderExportList } from './render.js';
 import { buildFilename } from '../shared/format.js';
-import { initialState, deleteExport, failExport, persistState } from '../shared/storageState.js';
+import { requestStart, requestCancel, requestChatInfo } from '../shared/messages.js';
+import {
+  allowContentScriptAccess,
+  loadState,
+  saveStatus,
+  deleteExport,
+  onStateChange,
+  errorStatus,
+} from '../shared/exportStore.js';
+
+const TAB_UNREACHABLE = 'Could not reach the WhatsApp Web tab — reload that tab, then try again.';
 
 const statusArea = document.getElementById('status-area');
 const exportList = document.getElementById('export-list');
@@ -10,126 +20,101 @@ const rangeToInput = document.getElementById('range-to');
 let activeTabId = null;
 let disabledReason = null;
 let chatName = null;
+let state = null;
 
-function render(state) {
+function render(newState) {
+  state = newState;
   statusArea.innerHTML = renderStatus({ ...state, disabledReason, chatName });
   exportList.innerHTML = renderExportList(state.exports);
+}
 
-  const exportBtn = document.getElementById('export-btn');
-  if (exportBtn && !exportBtn.disabled) {
-    exportBtn.addEventListener('click', () => {
-      const from = rangeFromInput.value || null;
-      const to = rangeToInput.value || null;
-      chrome.tabs.sendMessage(activeTabId, { action: 'startExport', from, to }).catch(() => {
-        render({
-          ...state,
-          status: 'error',
-          count: 0,
-          error: 'Could not reach the WhatsApp Web tab — reload that tab, then try again.',
-        });
-      });
-    });
+// Shown in this popup only; the stored status is left alone.
+function showError(message) {
+  render({ ...state, ...errorStatus(message) });
+}
+
+function downloadExport(entry) {
+  const url = URL.createObjectURL(new Blob([entry.text], { type: 'text/plain' }));
+  chrome.downloads.download({ url, filename: buildFilename(entry), saveAs: false });
+}
+
+async function copyExport(entry, btn) {
+  const original = btn.title;
+  try {
+    await navigator.clipboard.writeText(entry.text);
+    btn.title = 'Copied!';
+  } catch {
+    btn.title = 'Copy failed';
   }
+  setTimeout(() => {
+    btn.title = original;
+  }, 1200);
+}
 
-  const cancelBtn = document.getElementById('cancel-btn');
-  if (cancelBtn) {
-    cancelBtn.addEventListener('click', () => {
-      chrome.tabs.sendMessage(activeTabId, { action: 'cancelExport' }).catch(() => {
-        render({
-          ...state,
-          status: 'error',
-          count: 0,
-          error: 'Could not reach the WhatsApp Web tab — reload that tab, then try again.',
-        });
-      });
-    });
+statusArea.addEventListener('click', (event) => {
+  if (event.target.closest('#export-btn:not(:disabled)')) {
+    const range = { from: rangeFromInput.value || null, to: rangeToInput.value || null };
+    requestStart(activeTabId, range).catch(() => showError(TAB_UNREACHABLE));
+  } else if (event.target.closest('#cancel-btn')) {
+    requestCancel(state.tabId).catch(() => showError(TAB_UNREACHABLE));
   }
+});
 
-  for (const btn of exportList.querySelectorAll('.download-btn')) {
-    btn.addEventListener('click', () => {
-      const entry = state.exports.find((item) => item.id === btn.dataset.exportId);
-      if (!entry) return;
-      const blob = new Blob([entry.text], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      chrome.downloads.download({
-        url,
-        filename: buildFilename(entry.groupName, new Date(entry.date)),
-        saveAs: false,
-      });
-    });
+exportList.addEventListener('click', (event) => {
+  const btn = event.target.closest('button[data-export-id]');
+  const entry = btn && state.exports.find((item) => item.id === btn.dataset.exportId);
+  if (!entry) return;
+  if (btn.classList.contains('download-btn')) {
+    downloadExport(entry);
+  } else if (btn.classList.contains('copy-btn')) {
+    copyExport(entry, btn);
+  } else if (btn.classList.contains('delete-btn')) {
+    deleteExport(entry.id).catch(() => showError('Could not delete that export — try again.'));
   }
+});
 
-  for (const btn of exportList.querySelectorAll('.copy-btn')) {
-    btn.addEventListener('click', async () => {
-      const entry = state.exports.find((item) => item.id === btn.dataset.exportId);
-      if (!entry) return;
-      const original = btn.title;
-      try {
-        await navigator.clipboard.writeText(entry.text);
-        btn.title = 'Copied!';
-      } catch {
-        btn.title = 'Copy failed';
-      }
-      setTimeout(() => {
-        btn.title = original;
-      }, 1200);
-    });
+// Sets activeTabId, disabledReason and chatName.
+async function inspectActiveTab() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  activeTabId = tab && tab.id;
+
+  if (!(tab && tab.url && tab.url.startsWith('https://web.whatsapp.com/'))) {
+    disabledReason = 'Open a chat on web.whatsapp.com first.';
+    return;
   }
+  try {
+    chatName = (await requestChatInfo(activeTabId)).chatName;
+    disabledReason = chatName ? null : 'Open a chat to export.';
+  } catch {
+    disabledReason = 'Reload the WhatsApp Web tab, then reopen this popup.';
+  }
+}
 
-  for (const btn of exportList.querySelectorAll('.delete-btn')) {
-    btn.addEventListener('click', () => {
-      persistState(deleteExport(state, btn.dataset.exportId)).catch(() => {
-        render({
-          ...state,
-          status: 'error',
-          count: 0,
-          error: 'Could not delete that export — try again.',
-        });
-      });
-    });
+// The exporting tab need not be the active one. A tab that cannot be reached
+// was closed or reloaded, which ends its export just the same.
+async function isStillExporting(tabId) {
+  try {
+    return (await requestChatInfo(tabId)).running;
+  } catch {
+    return false;
   }
 }
 
 async function init() {
-  // chrome.storage.session is off-limits to content scripts by default;
-  // this unlocks it so content.js can read/write export progress there.
-  await chrome.storage.session.setAccessLevel({
-    accessLevel: 'TRUSTED_AND_UNTRUSTED_CONTEXTS',
-  });
+  await allowContentScriptAccess();
+  await inspectActiveTab();
 
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  activeTabId = tab && tab.id;
-
-  const onWhatsApp = Boolean(tab && tab.url && tab.url.startsWith('https://web.whatsapp.com/'));
-  let tabIsExporting = null;
-  if (!onWhatsApp) {
-    disabledReason = 'Open a chat on web.whatsapp.com first.';
-  } else {
-    try {
-      const response = await chrome.tabs.sendMessage(activeTabId, { action: 'checkChatOpen' });
-      disabledReason = response && response.hasChat ? null : 'Open a chat to export.';
-      chatName = (response && response.groupName) || null;
-      tabIsExporting = Boolean(response && response.running);
-    } catch {
-      disabledReason = 'Reload the WhatsApp Web tab, then reopen this popup.';
-    }
+  let stored = await loadState();
+  // Reloading or closing the WhatsApp tab mid-export kills the export
+  // without anyone updating storage; without this the popup would say
+  // "Exporting…" until the browser restarts.
+  if (stored.status === 'running' && !(await isStillExporting(stored.tabId))) {
+    const interrupted = errorStatus('The last export was interrupted because the WhatsApp tab was reloaded or closed.');
+    await saveStatus(interrupted);
+    stored = { ...stored, ...interrupted };
   }
-
-  let { waState } = await chrome.storage.session.get('waState');
-  // Reloading the WhatsApp tab mid-export kills the export without anyone
-  // updating storage; without this the popup would say "Exporting…" until
-  // the browser restarts.
-  if (waState && waState.status === 'running' && tabIsExporting === false) {
-    waState = failExport(waState, 'The last export was interrupted because the WhatsApp tab was reloaded.');
-    await persistState(waState);
-  }
-  render(waState || initialState());
-
-  chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === 'session' && changes.waState) {
-      render(changes.waState.newValue || initialState());
-    }
-  });
+  render(stored);
+  onStateChange(render);
 }
 
 init();

@@ -2,23 +2,26 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parsePrePlainText, buildLine, looksLikeLoadOlderPrompt } from '../src/content/scrape.js';
 
+const MDY = ['month', 'day', 'year'];
+
 test('parsePrePlainText extracts the bracketed timestamp and sender', () => {
-  assert.deepEqual(parsePrePlainText('[14:32, 8/30/2026] Danny: '), {
-    time: '14:32, 8/30/2026',
-    sender: 'Danny',
-  });
+  const { time, sender, date } = parsePrePlainText('[14:32, 8/30/2026] Danny: ', MDY);
+  assert.deepEqual([time, sender], ['14:32, 8/30/2026', 'Danny']);
+  assert.deepEqual(date, new Date(2026, 7, 30, 14, 32));
 });
 
 test('parsePrePlainText handles a sender name containing a colon', () => {
-  assert.deepEqual(parsePrePlainText('[9:01 AM, 1/2/2024] Acme: Support: '), {
-    time: '9:01 AM, 1/2/2024',
-    sender: 'Acme: Support',
-  });
+  assert.equal(parsePrePlainText('[9:01 AM, 1/2/2024] Acme: Support: ', MDY).sender, 'Acme: Support');
+});
+
+test('parsePrePlainText keeps the sender when the timestamp is not understood', () => {
+  const parsed = parsePrePlainText('[sometime] Danny: ', MDY);
+  assert.deepEqual([parsed.sender, parsed.date], ['Danny', null]);
 });
 
 test('parsePrePlainText returns null when the string does not match', () => {
-  assert.equal(parsePrePlainText('not a timestamp'), null);
-  assert.equal(parsePrePlainText(''), null);
+  assert.equal(parsePrePlainText('not a timestamp', MDY), null);
+  assert.equal(parsePrePlainText('', MDY), null);
 });
 
 test('buildLine includes the bracketed time when present', () => {

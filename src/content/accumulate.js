@@ -9,33 +9,30 @@ export function createAccumulator() {
 // belong at the end. A pass with no anchor at all is older history, since
 // the export only ever scrolls upward.
 //
-// seenIds is shared with the accumulator passed in rather than copied:
-// copying it every pass would cost O(history) per pass on a long chat.
-export function addPass(accumulator, rows) {
+// Rows that fail `isWanted` (outside the chosen date range) are classified
+// and counted like any other but leave no line behind. Returns how many
+// never-seen rows were older history and how many arrived at the bottom.
+export function addPass(accumulator, rows, isWanted = () => true) {
   const { seenIds } = accumulator;
   const older = [];
   const newer = [];
+  const counts = { olderCount: 0, newerCount: 0 };
+  const addedThisPass = new Set();
   let passedAnchor = false;
-  let pending = null;
 
   for (const row of rows) {
     if (seenIds.has(row.id)) {
-      if (!pending || !pending.has(row.id)) passedAnchor = true;
+      if (!addedThisPass.has(row.id)) passedAnchor = true;
       continue;
     }
     seenIds.add(row.id);
-    (pending ||= new Set()).add(row.id);
-    (passedAnchor ? newer : older).push(row.line);
+    addedThisPass.add(row.id);
+    counts[passedAnchor ? 'newerCount' : 'olderCount'] += 1;
+    if (isWanted(row)) (passedAnchor ? newer : older).push(row.line);
   }
 
-  const addedCount = older.length + newer.length;
-  if (addedCount === 0) return { accumulator, addedCount };
-  return {
-    accumulator: { seenIds, lines: [...older, ...accumulator.lines, ...newer] },
-    addedCount,
-  };
-}
-
-export function getText(accumulator) {
-  return accumulator.lines.join('\n');
+  if (older.length + newer.length > 0) {
+    accumulator.lines = [...older, ...accumulator.lines, ...newer];
+  }
+  return counts;
 }

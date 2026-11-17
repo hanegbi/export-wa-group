@@ -1,9 +1,14 @@
+import { parseWhatsAppTimestamp } from './timestamp.js';
+
 const PRE_PLAIN_TEXT_RE = /^\[(.+?)\]\s*(.*):\s*$/s;
 
-export function parsePrePlainText(raw) {
+// `raw` is a row's data-pre-plain-text, e.g. "[14:32, 8/30/2026] Danny: ".
+// `time` is the bracketed text as WhatsApp wrote it; `date` is the same
+// moment as a Date, or null if it could not be understood.
+export function parsePrePlainText(raw, fieldOrder) {
   const match = PRE_PLAIN_TEXT_RE.exec(raw);
   if (!match) return null;
-  return { time: match[1], sender: match[2] };
+  return { time: match[1], sender: match[2], date: parseWhatsAppTimestamp(match[1], fieldOrder) };
 }
 
 export function buildLine({ time, sender, text }) {
